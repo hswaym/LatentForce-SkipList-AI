@@ -8,7 +8,7 @@ from skiplist.analysis.parsing import parse_file
 from skiplist.analysis.symbols import build_symbol_table
 from skiplist.analysis.callgraph import build_call_graph
 from skiplist.analysis.entrypoints import detect_entry_points
-from skiplist.analysis.reachability import find_dead_code
+from skiplist.analysis.reachability import find_dead_code, detect_dynamic_modules
 from skiplist.analysis.duplicates import cluster_duplicates
 from skiplist.analysis.scoring import compute_priority_score
 from skiplist.models import Report, Meta, Summary, Finding, Evidence
@@ -37,11 +37,12 @@ def analyze_command(args: argparse.Namespace) -> None:
     call_graph = build_call_graph(modules, symbol_table, repo_root)
     entry_points = detect_entry_points(modules, symbol_table, user_entries=args.entry, repo_root=repo_root)
 
-    dead_symbols = find_dead_code(call_graph, entry_points, symbol_table)
+    dead_symbols = find_dead_code(call_graph, entry_points, symbol_table, modules, repo_root)
     dead_symbol_names = {s.qualified_name for s in dead_symbols}
     reachable_symbols = {s.qualified_name for s in symbol_table if s.qualified_name not in dead_symbol_names}
 
     dup_clusters = cluster_duplicates(modules, symbol_table, reachable_symbols, repo_root)
+    dynamic_modules = detect_dynamic_modules(modules, repo_root)
 
     findings: list[Finding] = []
     non_keeper_names = set()
@@ -58,7 +59,7 @@ def analyze_command(args: argparse.Namespace) -> None:
 
             findings.append(
                 Finding(
-                    id="",  # assigned after sorting
+                    id="",
                     type="duplicate",
                     symbol=non_keeper.qualified_name,
                     file=non_keeper.file,
@@ -75,24 +76,32 @@ def analyze_command(args: argparse.Namespace) -> None:
 
     # Build dead code findings (excluding non-keeper duplicates)
     filtered_dead = [s for s in dead_symbols if s.qualified_name not in non_keeper_names]
-    dead_functions_count = len(filtered_dead)
-    dead_lines_sum = sum(s.lines for s in filtered_dead)
 
     for sym in filtered_dead:
+        mod_name = ".".join(sym.qualified_name.split(".")[:-1])
+        if mod_name in dynamic_modules:
+            conf = "low"
+            reason = "Statically unreachable, but its module uses dynamic dispatch — may be invoked at runtime."
+            caveats = [f"Module '{mod_name}' uses dynamic dispatch (getattr/globals/eval/import); this function may be reached dynamically."]
+        else:
+            conf = "high"
+            reason = "Unreachable symbol never called from entry points."
+            caveats = []
+
         findings.append(
             Finding(
-                id="",  # assigned after sorting
+                id="",
                 type="dead_code",
                 symbol=sym.qualified_name,
                 file=sym.file,
                 line_start=sym.line_start,
                 line_end=sym.line_end,
                 lines=sym.lines,
-                reason="Unreachable symbol never called from entry points.",
+                reason=reason,
                 evidence=Evidence(callers=[], duplicate_of=[]),
-                confidence="high",
-                caveats=[],
-                priority_score=compute_priority_score(sym.lines, "high", "dead_code")
+                confidence=conf,
+                caveats=caveats,
+                priority_score=compute_priority_score(sym.lines, conf, "dead_code")
             )
         )
 
@@ -102,6 +111,16 @@ def analyze_command(args: argparse.Namespace) -> None:
     # Assign IDs F001, F002...
     for idx, f in enumerate(sorted_findings, start=1):
         f.id = f"F{idx:03d}"
+
+    # Summary accounting:
+    high_dead_findings = [f for f in sorted_findings if f.type == "dead_code" and f.confidence != "low"]
+    low_conf_findings = [f for f in sorted_findings if f.confidence == "low"]
+
+    dead_functions_count = len(high_dead_findings)
+    dead_lines_sum = sum(f.lines for f in high_dead_findings)
+
+    needs_review_count = len(low_conf_findings)
+    needs_review_lines_sum = sum(f.lines for f in low_conf_findings)
 
     safe_to_skip_lines = dead_lines_sum + duplicate_lines_sum
     safe_to_skip_pct = round(safe_to_skip_lines / total_lines * 100, 1) if total_lines > 0 else 0.0
@@ -119,6 +138,8 @@ def analyze_command(args: argparse.Namespace) -> None:
     summary = Summary(
         dead_functions=dead_functions_count,
         dead_lines=dead_lines_sum,
+        needs_review_functions=needs_review_count,
+        needs_review_lines=needs_review_lines_sum,
         duplicate_clusters=len(dup_clusters),
         duplicate_lines=duplicate_lines_sum,
         safe_to_skip_lines=safe_to_skip_lines,
@@ -145,7 +166,7 @@ def analyze_command(args: argparse.Namespace) -> None:
 
     print(
         f"Safe to skip: {safe_to_skip_lines} lines across {len(sorted_findings)} findings "
-        f"({dead_functions_count} dead, {duplicate_findings_count} duplicate)"
+        f"({dead_functions_count} dead, {duplicate_findings_count} duplicate, {needs_review_count} needs review)"
     )
 
 
@@ -184,7 +205,7 @@ def deadcode_command(args: argparse.Namespace) -> None:
     call_graph = build_call_graph(modules, symbol_table, repo_root)
     entry_points = detect_entry_points(modules, symbol_table, user_entries=args.entry, repo_root=repo_root)
 
-    dead_symbols = find_dead_code(call_graph, entry_points, symbol_table)
+    dead_symbols = find_dead_code(call_graph, entry_points, symbol_table, modules, repo_root)
 
     sorted_entries = sorted(list(entry_points))
     print(f"Entry points: {sorted_entries}")

@@ -83,7 +83,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
         .tiles-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
             margin-bottom: 1.25rem;
         }}
@@ -292,6 +292,10 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
                     <div class="tile-lbl">Duplicate Clusters ({summary.get('duplicate_lines', 0)} lines)</div>
                 </div>
                 <div class="tile">
+                    <div class="tile-val">{summary.get('needs_review_functions', 0)}</div>
+                    <div class="tile-lbl">Needs Review ({summary.get('needs_review_lines', 0)} lines)</div>
+                </div>
+                <div class="tile">
                     <div class="tile-val">{summary.get('safe_to_skip_lines', 0)}</div>
                     <div class="tile-lbl">Total Safe-to-Skip Lines</div>
                 </div>
@@ -407,7 +411,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
             html_content += f"""
                     <tr>
-                        <td>{html.escape(f_id)}</td>
+                        <td><strong>{html.escape(f_id)}</strong></td>
                         <td class="code-sym">{html.escape(f_sym)}</td>
                         <td class="code-file">{html.escape(loc_str)}</td>
                         <td>{html.escape(reason)} {html.escape(caveats)}</td>

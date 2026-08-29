@@ -27,6 +27,8 @@ class Meta:
 class Summary:
     dead_functions: int = 0
     dead_lines: int = 0
+    needs_review_functions: int = 0
+    needs_review_lines: int = 0
     duplicate_clusters: int = 0
     duplicate_lines: int = 0
     safe_to_skip_lines: int = 0
