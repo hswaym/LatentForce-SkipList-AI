@@ -1,0 +1,1 @@
+"""Legacy sample package fixture."""

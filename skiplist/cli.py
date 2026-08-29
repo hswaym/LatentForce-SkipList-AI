@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from skiplist.analysis.discovery import find_python_files
 from skiplist.analysis.parsing import parse_file
+from skiplist.analysis.symbols import build_symbol_table
 
 
 def count_ast_nodes(tree: ast.AST) -> tuple[int, int]:
@@ -40,10 +41,32 @@ def analyze_command(args: argparse.Namespace) -> None:
     print(f"Parsed {files_parsed} files, found {total_functions} functions, {total_classes} classes.")
 
 
+def symbols_command(args: argparse.Namespace) -> None:
+    """Execute the symbols command to list all defined symbols in the codebase."""
+    repo_root = Path(args.path).resolve()
+    files = find_python_files(repo_root, exclude=args.exclude)
+
+    modules = {}
+    for file_path in files:
+        tree = parse_file(file_path)
+        if tree is not None:
+            modules[file_path] = tree
+
+    symbols = build_symbol_table(modules, repo_root)
+
+    # Sort by file then line_start
+    sorted_symbols = sorted(symbols, key=lambda s: (s.file, s.line_start))
+
+    for sym in sorted_symbols:
+        location = f"{sym.file}:{sym.line_start}-{sym.line_end}"
+        print(f"{sym.qualified_name:<35} {location:<30} {sym.lines:<6} {sym.kind}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="skiplist", description="SkipList: Pre-migration code-triage tool.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    # Analyze command
     analyze_parser = subparsers.add_parser("analyze", help="Analyze a Python codebase for dead and duplicate code.")
     analyze_parser.add_argument("path", help="Path to Python codebase root directory")
     analyze_parser.add_argument("--entry", action="append", default=[], help="Specify entry point file/module (repeatable)")
@@ -51,10 +74,17 @@ def main() -> None:
     analyze_parser.add_argument("--out", default="report.html", help="Output file path (default: report.html)")
     analyze_parser.add_argument("--format", choices=["html", "json"], default="html", help="Report format (default: html)")
 
+    # Symbols command
+    symbols_parser = subparsers.add_parser("symbols", help="Build and print symbol table for a Python codebase.")
+    symbols_parser.add_argument("path", help="Path to Python codebase root directory")
+    symbols_parser.add_argument("--exclude", action="append", default=[], help="Exclude file/directory path pattern (repeatable)")
+
     args = parser.parse_args()
 
     if args.command == "analyze":
         analyze_command(args)
+    elif args.command == "symbols":
+        symbols_command(args)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,16 @@ from typing import List, Dict, Any, Optional
 
 
 @dataclass
+class Symbol:
+    qualified_name: str
+    kind: str  # "function" | "method" | "class"
+    file: str  # path relative to repo root
+    line_start: int
+    line_end: int
+    lines: int
+
+
+@dataclass
 class Meta:
     repo_path: str
     analyzed_at: str
