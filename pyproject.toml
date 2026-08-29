@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skiplist"
+version = "0.1.0"
+description = "Pre-migration code-triage tool — finds dead & duplicate code so migration teams scope real work first."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "hswaym"}
+]
+dependencies = [
+    "click>=8.0.0",
+    "jinja2>=3.0.0",
+]
+
+[project.scripts]
+skiplist = "skiplist.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
