@@ -53,7 +53,6 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
     high_med_findings = [f for f in findings if f.get("confidence") != "low"]
     low_conf_findings = [f for f in findings if f.get("confidence") == "low"]
 
-    # Graph JSON serialization for inline JS rendering
     graph_json = json.dumps(graph_data or {"nodes": [], "edges": [], "collapsed": False, "collapse_reason": None})
 
     html_content = f"""<!DOCTYPE html>
@@ -391,7 +390,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
         svg.graph-svg {{
             width: 100%;
-            height: 440px;
+            height: 460px;
             background: #f8fafc;
             border-radius: 10px;
             border: 1px solid var(--border-color);
@@ -674,6 +673,15 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             }});
         }}
 
+        function escapeJsHtml(str) {{
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }}
+
         // RENDER DEPENDENCY GRAPH VIA VANILLA SVG & FORCE-DIRECTED SIMULATION
         function renderGraph() {{
             const svg = document.getElementById("graphSvg");
@@ -691,8 +699,8 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             const height = 440;
             const nodes = GRAPH_DATA.nodes.map((n, i) => ({{
                 ...n,
-                x: width / 2 + (Math.random() - 0.5) * 300,
-                y: height / 2 + (Math.random() - 0.5) * 200,
+                x: width / 2 + (Math.random() - 0.5) * 350,
+                y: height / 2 + (Math.random() - 0.5) * 220,
                 vx: 0,
                 vy: 0
             }}));
@@ -744,13 +752,11 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
                     n.vx *= 0.85;
                     n.vy *= 0.85;
 
-                    // Constrain bounds
                     n.x = Math.max(30, Math.min(width - 30, n.x));
                     n.y = Math.max(30, Math.min(height - 30, n.y));
                 }});
             }}
 
-            // Draw SVG Edges
             const statusColors = {{
                 reachable: "#16a34a",
                 dead: "#dc2626",
@@ -763,18 +769,19 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
                 svgHtml += `<line class="graph-edge" x1="${{e.source.x}}" y1="${{e.source.y}}" x2="${{e.target.x}}" y2="${{e.target.y}}" />`;
             }});
 
-            // Draw SVG Nodes
             nodes.forEach(n => {{
                 const color = statusColors[n.status] || "#4f46e5";
                 const label = n.symbol.split(".").pop();
                 const r = GRAPH_DATA.collapsed ? 9 : 7;
+                const safeSym = escapeJsHtml(n.symbol);
+                const safeFile = escapeJsHtml(n.file);
 
                 svgHtml += `
-                    <g onclick="selectGraphNode('${{html.escape(n.symbol)}}', '${{html.escape(n.file)}}')">
+                    <g onclick="selectGraphNode('${{safeSym}}', '${{safeFile}}')">
                         <circle class="graph-node" cx="${{n.x}}" cy="${{n.y}}" r="${{r}}" fill="${{color}}" stroke="#ffffff" stroke-width="1.5">
-                            <title>${{html.escape(n.symbol)}} (${{n.loc}} LOC, ${{n.status}})</title>
+                            <title>${{safeSym}} (${{n.loc}} LOC, ${{n.status}})</title>
                         </circle>
-                        <text class="node-label" x="${{n.x + 10}}" y="${{n.y + 3}}">${{html.escape(label)}}</text>
+                        <text class="node-label" x="${{n.x + 10}}" y="${{n.y + 3}}">${{escapeJsHtml(label)}}</text>
                     </g>
                 `;
             }});
@@ -783,7 +790,6 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         }}
 
         function selectGraphNode(symbolName, filePath) {{
-            // Find matching table row by symbol or file
             const allRows = Array.from(document.querySelectorAll("tr[data-sym]"));
             let targetRow = allRows.find(r => r.getAttribute("data-sym") === symbolName);
 
