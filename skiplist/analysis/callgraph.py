@@ -121,6 +121,7 @@ def _extract_calls_from_module(
             func_expr = call_node.func
             resolved_target = None
 
+            # Case 1: Direct function call `func()`
             if isinstance(func_expr, ast.Name):
                 name = func_expr.id
                 if name in import_map.aliases:
@@ -133,18 +134,34 @@ def _extract_calls_from_module(
                     if same_mod_candidate in symbol_map:
                         resolved_target = same_mod_candidate
 
+            # Case 2: Method or attribute call `self.method()`, `cls.method()`, `mod.func()`, or `obj.method()`
             elif isinstance(func_expr, ast.Attribute) and isinstance(func_expr.value, ast.Name):
-                mod_alias = func_expr.value.id
+                var_or_mod = func_expr.value.id
                 attr_name = func_expr.attr
 
-                if mod_alias in import_map.aliases:
-                    base_mod = import_map.aliases[mod_alias]
+                # 2a. Same-class method call via `self.method()` or `cls.method()`
+                if var_or_mod in ("self", "cls") and len(self.scope_stack) > 1:
+                    class_qual = ".".join(self.scope_stack[:-1])
+                    method_candidate = f"{class_qual}.{attr_name}"
+                    if method_candidate in symbol_map:
+                        resolved_target = method_candidate
+
+                # 2b. Module import alias call `mod.func()` or `mod.Klass.func()`
+                if not resolved_target and var_or_mod in import_map.aliases:
+                    base_mod = import_map.aliases[var_or_mod]
                     target_candidate = f"{base_mod}.{attr_name}"
                     if target_candidate in symbol_map:
                         resolved_target = target_candidate
+                    else:
+                        # Check if base_mod is a module and attr_name is a function or method in symbols
+                        for sym_qual in symbol_map:
+                            if sym_qual.startswith(f"{base_mod}.") and sym_qual.endswith(f".{attr_name}"):
+                                resolved_target = sym_qual
+                                break
 
+                # 2c. Submodule call in same module
                 if not resolved_target:
-                    same_mod_sub = f"{current_module}.{mod_alias}.{attr_name}" if current_module else f"{mod_alias}.{attr_name}"
+                    same_mod_sub = f"{current_module}.{var_or_mod}.{attr_name}" if current_module else f"{var_or_mod}.{attr_name}"
                     if same_mod_sub in symbol_map:
                         resolved_target = same_mod_sub
 

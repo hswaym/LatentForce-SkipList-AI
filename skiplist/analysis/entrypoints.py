@@ -1,4 +1,5 @@
 import ast
+import fnmatch
 import re
 from pathlib import Path
 from typing import Dict, List, Set, Optional
@@ -126,6 +127,100 @@ def _detect_console_scripts(repo_root: Path) -> Set[str]:
     return scripts
 
 
+def extract_test_discovery_entry_points(
+    modules: Dict[Path, ast.Module],
+    symbol_table: List[Symbol],
+    repo_root: Path
+) -> Set[str]:
+    """Identify test methods (test_*), unittest.TestCase methods, and @pytest.fixture functions as entry point reachability roots."""
+    test_entries = set()
+    test_case_classes = set()
+
+    for file_path, tree in modules.items():
+        if tree is None:
+            continue
+
+        file_name = file_path.name
+        rel_parts = [p.lower() for p in file_path.relative_to(repo_root.resolve()).parts] if file_path.resolve().is_relative_to(repo_root.resolve()) else [p.lower() for p in file_path.parts]
+        is_test_file = fnmatch.fnmatch(file_name, "test_*.py") or fnmatch.fnmatch(file_name, "*_test.py") or any(p in ("test", "tests") for p in rel_parts)
+        mod_name = get_module_dotted_name(file_path.resolve(), repo_root.resolve())
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                is_test_case = False
+                for base in node.bases:
+                    if isinstance(base, ast.Name) and "TestCase" in base.id:
+                        is_test_case = True
+                    elif isinstance(base, ast.Attribute) and "TestCase" in base.attr:
+                        is_test_case = True
+
+                if is_test_case or (is_test_file and ("test" in node.name.lower() or "base" in node.name.lower())):
+                    qual_cls = f"{mod_name}.{node.name}" if mod_name else node.name
+                    test_case_classes.add(qual_cls)
+
+    for sym in symbol_table:
+        parts = sym.qualified_name.split(".")
+        simple_name = parts[-1]
+        parent_qual = ".".join(parts[:-1])
+        filename = Path(sym.file).name
+        file_parts = [p.lower() for p in Path(sym.file).parts]
+        is_test_file = fnmatch.fnmatch(filename, "test_*.py") or fnmatch.fnmatch(filename, "*_test.py") or any(p in ("test", "tests") for p in file_parts)
+
+        if parent_qual in test_case_classes:
+            test_entries.add(sym.qualified_name)
+
+        if is_test_file and (simple_name.startswith("test_") or simple_name in ("setUp", "tearDown", "setUpClass", "tearDownClass", "run", "setUpModule", "tearDownModule")):
+            test_entries.add(sym.qualified_name)
+
+    # Check @pytest.fixture decorators
+    for file_path, tree in modules.items():
+        if tree is None:
+            continue
+
+        mod_name = get_module_dotted_name(file_path.resolve(), repo_root.resolve())
+
+        class FixtureVisitor(ast.NodeVisitor):
+            def __init__(self):
+                self.scope: List[str] = [mod_name] if mod_name else []
+
+            def visit_ClassDef(self, node: ast.ClassDef):
+                self.scope.append(node.name)
+                self.generic_visit(node)
+                self.scope.pop()
+
+            def visit_FunctionDef(self, node: ast.FunctionDef):
+                self._check_fixture(node)
+
+            def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+                self._check_fixture(node)
+
+            def _check_fixture(self, node: ast.FunctionDef | ast.AsyncFunctionDef):
+                qual_name = f"{'.'.join(self.scope)}.{node.name}" if self.scope else node.name
+                for dec in node.decorator_list:
+                    is_fixture = False
+                    if isinstance(dec, ast.Attribute) and dec.attr == "fixture":
+                        is_fixture = True
+                    elif isinstance(dec, ast.Name) and dec.id == "fixture":
+                        is_fixture = True
+                    elif isinstance(dec, ast.Call):
+                        if isinstance(dec.func, ast.Attribute) and dec.func.attr == "fixture":
+                            is_fixture = True
+                        elif isinstance(dec.func, ast.Name) and dec.func.id == "fixture":
+                            is_fixture = True
+
+                    if is_fixture:
+                        test_entries.add(qual_name)
+                        break
+
+                self.scope.append(node.name)
+                self.generic_visit(node)
+                self.scope.pop()
+
+        FixtureVisitor().visit(tree)
+
+    return test_entries
+
+
 def detect_entry_points(
     modules: Dict[Path, ast.Module],
     symbol_table: List[Symbol],
@@ -161,10 +256,9 @@ def detect_entry_points(
             if len(parts) <= 2:
                 entry_points.add(sym.qualified_name)
 
-        # (b2) Test functions / test classes in test files
-        simple_name = sym.qualified_name.split(".")[-1]
-        if (sym.file.startswith("test") or "test" in sym.file) and (simple_name.startswith("test_") or simple_name.startswith("Test")):
-            entry_points.add(sym.qualified_name)
+    # (b2) Test discovery entry points
+    test_entries = extract_test_discovery_entry_points(modules, symbol_table, repo_root)
+    entry_points.update(test_entries)
 
     # (c) Console scripts targets from pyproject.toml / setup.py
     console_scripts = _detect_console_scripts(repo_root)

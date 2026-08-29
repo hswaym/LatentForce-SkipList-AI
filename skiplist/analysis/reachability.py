@@ -56,10 +56,10 @@ def extract_test_discovery_seeds(
             continue
 
         file_name = file_path.name
-        is_test_file = fnmatch.fnmatch(file_name, "test_*.py") or fnmatch.fnmatch(file_name, "*_test.py")
+        rel_parts = [p.lower() for p in file_path.relative_to(repo_root.resolve()).parts] if file_path.resolve().is_relative_to(repo_root.resolve()) else [p.lower() for p in file_path.parts]
+        is_test_file = fnmatch.fnmatch(file_name, "test_*.py") or fnmatch.fnmatch(file_name, "*_test.py") or any(p in ("test", "tests") for p in rel_parts)
         mod_name = get_module_dotted_name(file_path.resolve(), repo_root.resolve())
 
-        # First pass: identify classes that subclass TestCase
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 is_test_case = False
@@ -69,27 +69,25 @@ def extract_test_discovery_seeds(
                     elif isinstance(base, ast.Attribute) and "TestCase" in base.attr:
                         is_test_case = True
 
-                if is_test_case or (is_test_file and (node.name.startswith("Test") or node.name.endswith("Test"))):
+                if is_test_case or (is_test_file and ("test" in node.name.lower() or "base" in node.name.lower() or "tb" in node.name.lower())):
                     qual_cls = f"{mod_name}.{node.name}" if mod_name else node.name
                     test_case_classes.add(qual_cls)
 
-    # Second pass: mark methods of TestCase classes, test_ functions in test files, and pytest.fixture
     for sym in symbol_table:
         parts = sym.qualified_name.split(".")
         simple_name = parts[-1]
         parent_qual = ".".join(parts[:-1])
         filename = Path(sym.file).name
-        is_test_file = fnmatch.fnmatch(filename, "test_*.py") or fnmatch.fnmatch(filename, "*_test.py")
+        file_parts = [p.lower() for p in Path(sym.file).parts]
+        is_test_file = fnmatch.fnmatch(filename, "test_*.py") or fnmatch.fnmatch(filename, "*_test.py") or any(p in ("test", "tests") for p in file_parts)
 
-        # 1. Any method in a class that subclasses TestCase or is a Test class in test file
-        if parent_qual in test_case_classes:
+        if parent_qual in test_case_classes or sym.qualified_name in test_case_classes:
             test_seeds.add(sym.qualified_name)
 
-        # 2. Any function/method named test_* in test_*.py or *_test.py
-        if is_test_file and simple_name.startswith("test_"):
+        if is_test_file and (simple_name.startswith("test_") or simple_name in ("setUp", "tearDown", "setUpClass", "tearDownClass", "run", "setUpModule", "tearDownModule")):
             test_seeds.add(sym.qualified_name)
 
-    # Third pass: check pytest.fixture decorator
+    # Check @pytest.fixture decorators
     for file_path, tree in modules.items():
         if tree is None:
             continue
@@ -194,11 +192,9 @@ def find_dead_code(
     seeds.update(test_seeds)
 
     for sym in symbol_table:
-        # Dunder methods/functions are implicitly reachable
         if is_dunder_symbol(sym):
             seeds.add(sym.qualified_name)
 
-        # Symbols exported in module __all__
         mod_name = ".".join(sym.qualified_name.split(".")[:-1])
         simple_name = sym.qualified_name.split(".")[-1]
         if mod_name in module_alls and simple_name in module_alls[mod_name]:
@@ -211,10 +207,10 @@ def find_dead_code(
             descendants = nx.descendants(call_graph, seed)
             reached.update(descendants)
 
-    # Dead candidates = Symbol objects whose qualified_name was never reached
+    # Dead candidates = function and method Symbol objects whose qualified_name was never reached
     dead_symbols = [
         sym for sym in symbol_table
-        if sym.qualified_name not in reached
+        if sym.kind in ("function", "method") and sym.qualified_name not in reached
     ]
 
     return dead_symbols
