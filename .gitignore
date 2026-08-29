@@ -26,3 +26,7 @@ dist/
 # Report outputs
 report.html
 findings.json
+bottle_report.html
+bottle_report.json
+fixtures/bottle_repo/
+

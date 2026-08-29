@@ -7,12 +7,8 @@ from skiplist.analysis.symbols import get_module_dotted_name
 
 
 FRAMEWORK_DECORATOR_ATTRS = {
-    # Flask / FastAPI / Web routes
     "route", "get", "post", "put", "delete", "patch", "head", "options", "websocket",
-    # Click / Typer CLI commands
-    "command", "group",
-    # Celery tasks
-    "task", "shared_task"
+    "command", "group", "task", "shared_task"
 }
 
 FRAMEWORK_DECORATOR_NAMES = {
@@ -81,7 +77,6 @@ def _detect_framework_routes(tree: ast.AST, current_module: str, known_symbols: 
 
             for decorator in node.decorator_list:
                 is_route = False
-                # E.g. @app.route(...), @router.get(...)
                 if isinstance(decorator, ast.Call):
                     func_expr = decorator.func
                     if isinstance(func_expr, ast.Attribute) and func_expr.attr in FRAMEWORK_DECORATOR_ATTRS:
@@ -165,6 +160,11 @@ def detect_entry_points(
             parts = sym.qualified_name.split(".")
             if len(parts) <= 2:
                 entry_points.add(sym.qualified_name)
+
+        # (b2) Test functions / test classes in test files
+        simple_name = sym.qualified_name.split(".")[-1]
+        if (sym.file.startswith("test") or "test" in sym.file) and (simple_name.startswith("test_") or simple_name.startswith("Test")):
+            entry_points.add(sym.qualified_name)
 
     # (c) Console scripts targets from pyproject.toml / setup.py
     console_scripts = _detect_console_scripts(repo_root)

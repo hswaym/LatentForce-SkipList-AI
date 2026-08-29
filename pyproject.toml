@@ -22,3 +22,7 @@ skiplist = "skiplist.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["fixtures", ".*", "build", "dist"]
