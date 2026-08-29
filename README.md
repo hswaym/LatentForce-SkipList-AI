@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # SkipList
 
 **Know what to skip before you migrate.**
@@ -66,7 +66,6 @@ When migrating or modernizing legacy Python codebases, migration teams waste sig
 python -m pip install -e .
 ```
 
-<<<<<<< HEAD
 ## Usage
 
 **Full analysis** — runs the pipeline (discovery, AST parsing, symbol table, call-graph reachability, duplicate clustering, priority scoring) and emits report files:
