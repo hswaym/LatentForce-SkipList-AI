@@ -13,6 +13,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
     meta = report_data.get("meta", {})
     summary = report_data.get("summary", {})
     findings = report_data.get("findings", [])
+    graph_data = report_data.get("graph", {})
 
     repo_raw = meta.get("repo_path", "")
     repo_name = os.path.basename(repo_raw.rstrip("/\\")) if repo_raw else "Repository"
@@ -51,6 +52,9 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
     high_med_findings = [f for f in findings if f.get("confidence") != "low"]
     low_conf_findings = [f for f in findings if f.get("confidence") == "low"]
+
+    # Graph JSON serialization for inline JS rendering
+    graph_json = json.dumps(graph_data or {"nodes": [], "edges": [], "collapsed": False, "collapse_reason": None})
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -271,6 +275,11 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             background-color: #f8fafc;
         }}
 
+        tr.highlight-row {{
+            background-color: #fef3c7 !important;
+            transition: background-color 0.3s ease;
+        }}
+
         .code-sym {{
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-weight: 600;
@@ -337,6 +346,80 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
         .detail-panel p:last-child {{
             margin-bottom: 0;
+        }}
+
+        /* GRAPH CARD */
+        .graph-card {{
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            margin-bottom: 3rem;
+        }}
+
+        .graph-caption {{
+            font-size: 0.875rem;
+            color: var(--review-txt);
+            background: var(--review-bg);
+            border: 1px solid var(--review-border);
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }}
+
+        .graph-legend {{
+            display: flex;
+            gap: 1.25rem;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }}
+
+        .legend-item {{
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }}
+
+        .legend-dot {{
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }}
+
+        svg.graph-svg {{
+            width: 100%;
+            height: 440px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }}
+
+        circle.graph-node {{
+            cursor: pointer;
+            transition: r 0.15s ease, stroke-width 0.15s ease;
+        }}
+
+        circle.graph-node:hover {{
+            r: 10;
+            stroke: #0f172a;
+            stroke-width: 2.5px;
+        }}
+
+        text.node-label {{
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 10px;
+            fill: #334155;
+            pointer-events: none;
+            user-select: none;
+        }}
+
+        line.graph-edge {{
+            stroke: #cbd5e1;
+            stroke-width: 1.5px;
+            stroke-opacity: 0.7;
         }}
 
         /* NEEDS REVIEW SECTION */
@@ -446,7 +529,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         detail_html = "".join(detail_bits)
 
         html_content += f"""
-                    <tr class="data-row" onclick="toggleDetail('{f_id}')">
+                    <tr class="data-row" id="row-{f_id}" data-sym="{html.escape(f_sym)}" data-file="{html.escape(f_file)}" onclick="toggleDetail('{f_id}')">
                         <td><strong>{priority}</strong></td>
                         <td>{type_badge}</td>
                         <td class="code-sym" title="{html.escape(f_sym)}">{html.escape(f_sym)}</td>
@@ -466,6 +549,21 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
     html_content += """
                 </tbody>
             </table>
+        </div>
+
+        <!-- DEPENDENCY GRAPH -->
+        <h2>Dependency Graph</h2>
+        <div class="graph-card">
+            <div id="graphCaption" class="graph-caption" style="display: none;"></div>
+            
+            <div class="graph-legend">
+                <div class="legend-item"><div class="legend-dot" style="background: #16a34a;"></div> Reachable</div>
+                <div class="legend-item"><div class="legend-dot" style="background: #dc2626;"></div> Dead</div>
+                <div class="legend-item"><div class="legend-dot" style="background: #7c3aed;"></div> Duplicate</div>
+                <div class="legend-item"><div class="legend-dot" style="background: #d97706;"></div> Needs Review</div>
+            </div>
+
+            <svg id="graphSvg" class="graph-svg" viewBox="0 0 900 440"></svg>
         </div>
 
         <!-- NEEDS REVIEW SECTION -->
@@ -495,7 +593,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             caveats = ", ".join(f.get("caveats", []))
 
             html_content += f"""
-                    <tr>
+                    <tr id="row-{f_id}" data-sym="{html.escape(f_sym)}" data-file="{html.escape(f_file)}">
                         <td><strong>{html.escape(f_id)}</strong></td>
                         <td class="code-sym" title="{html.escape(f_sym)}">{html.escape(f_sym)}</td>
                         <td class="code-file" title="{html.escape(loc_str)}">{html.escape(loc_str)}</td>
@@ -521,8 +619,10 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         </footer>
     </div>
 
-    <!-- INLINE JS FOR SORTING AND DETAILS -->
+    <!-- INLINE GRAPH DATA AND JS -->
     <script>
+        const GRAPH_DATA = {graph_json};
+
         function toggleDetail(id) {{
             const row = document.getElementById('detail-' + id);
             if (row) {{
@@ -573,6 +673,142 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
                 }}
             }});
         }}
+
+        // RENDER DEPENDENCY GRAPH VIA VANILLA SVG & FORCE-DIRECTED SIMULATION
+        function renderGraph() {{
+            const svg = document.getElementById("graphSvg");
+            const caption = document.getElementById("graphCaption");
+            if (!svg || !GRAPH_DATA || !GRAPH_DATA.nodes || GRAPH_DATA.nodes.length === 0) {{
+                return;
+            }}
+
+            if (GRAPH_DATA.collapsed && GRAPH_DATA.collapse_reason) {{
+                caption.style.display = "block";
+                caption.textContent = "Showing file-level view — " + GRAPH_DATA.collapse_reason;
+            }}
+
+            const width = 900;
+            const height = 440;
+            const nodes = GRAPH_DATA.nodes.map((n, i) => ({{
+                ...n,
+                x: width / 2 + (Math.random() - 0.5) * 300,
+                y: height / 2 + (Math.random() - 0.5) * 200,
+                vx: 0,
+                vy: 0
+            }}));
+
+            const nodeMap = {{}};
+            nodes.forEach(n => {{ nodeMap[n.id] = n; }});
+
+            const edges = (GRAPH_DATA.edges || []).map(e => ({{
+                source: nodeMap[e.source],
+                target: nodeMap[e.target]
+            }})).filter(e => e.source && e.target);
+
+            // Run simple 80-step force simulation
+            for (let iter = 0; iter < 80; iter++) {{
+                // Repulsion
+                for (let i = 0; i < nodes.length; i++) {{
+                    for (let j = i + 1; j < nodes.length; j++) {{
+                        let dx = nodes[j].x - nodes[i].x;
+                        let dy = nodes[j].y - nodes[i].y;
+                        let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                        if (dist < 180) {{
+                            let force = (180 - dist) / dist * 0.15;
+                            nodes[i].vx -= dx * force;
+                            nodes[i].vy -= dy * force;
+                            nodes[j].vx += dx * force;
+                            nodes[j].vy += dy * force;
+                        }}
+                    }}
+                }}
+
+                // Edge attraction
+                edges.forEach(e => {{
+                    let dx = e.target.x - e.source.x;
+                    let dy = e.target.y - e.source.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    let force = (dist - 90) * 0.04;
+                    e.source.vx += (dx / dist) * force;
+                    e.source.vy += (dy / dist) * force;
+                    e.target.vx -= (dx / dist) * force;
+                    e.target.vy -= (dy / dist) * force;
+                }});
+
+                // Centering force and damping
+                nodes.forEach(n => {{
+                    n.vx += (width / 2 - n.x) * 0.01;
+                    n.vy += (height / 2 - n.y) * 0.01;
+                    n.x += Math.max(-12, Math.min(12, n.vx));
+                    n.y += Math.max(-12, Math.min(12, n.vy));
+                    n.vx *= 0.85;
+                    n.vy *= 0.85;
+
+                    // Constrain bounds
+                    n.x = Math.max(30, Math.min(width - 30, n.x));
+                    n.y = Math.max(30, Math.min(height - 30, n.y));
+                }});
+            }}
+
+            // Draw SVG Edges
+            const statusColors = {{
+                reachable: "#16a34a",
+                dead: "#dc2626",
+                duplicate: "#7c3aed",
+                needs_review: "#d97706"
+            }};
+
+            let svgHtml = "";
+            edges.forEach(e => {{
+                svgHtml += `<line class="graph-edge" x1="${{e.source.x}}" y1="${{e.source.y}}" x2="${{e.target.x}}" y2="${{e.target.y}}" />`;
+            }});
+
+            // Draw SVG Nodes
+            nodes.forEach(n => {{
+                const color = statusColors[n.status] || "#4f46e5";
+                const label = n.symbol.split(".").pop();
+                const r = GRAPH_DATA.collapsed ? 9 : 7;
+
+                svgHtml += `
+                    <g onclick="selectGraphNode('${{html.escape(n.symbol)}}', '${{html.escape(n.file)}}')">
+                        <circle class="graph-node" cx="${{n.x}}" cy="${{n.y}}" r="${{r}}" fill="${{color}}" stroke="#ffffff" stroke-width="1.5">
+                            <title>${{html.escape(n.symbol)}} (${{n.loc}} LOC, ${{n.status}})</title>
+                        </circle>
+                        <text class="node-label" x="${{n.x + 10}}" y="${{n.y + 3}}">${{html.escape(label)}}</text>
+                    </g>
+                `;
+            }});
+
+            svg.innerHTML = svgHtml;
+        }}
+
+        function selectGraphNode(symbolName, filePath) {{
+            // Find matching table row by symbol or file
+            const allRows = Array.from(document.querySelectorAll("tr[data-sym]"));
+            let targetRow = allRows.find(r => r.getAttribute("data-sym") === symbolName);
+
+            if (!targetRow && filePath) {{
+                targetRow = allRows.find(r => r.getAttribute("data-file") === filePath);
+            }}
+
+            if (targetRow) {{
+                targetRow.scrollIntoView({{ behavior: "smooth", block: "center" }});
+                targetRow.classList.add("highlight-row");
+                setTimeout(() => {{ targetRow.classList.remove("highlight-row"); }}, 2500);
+
+                const onclickAttr = targetRow.getAttribute('onclick') || '';
+                const match = onclickAttr.match(/'([^']+)'/);
+                if (match) {{
+                    const detailId = match[1];
+                    const detailRow = document.getElementById('detail-' + detailId);
+                    if (detailRow && !detailRow.classList.contains('open')) {{
+                        toggleDetail(detailId);
+                    }}
+                }}
+            }}
+        }}
+
+        window.addEventListener("DOMContentLoaded", renderGraph);
     </script>
 </body>
 </html>
