@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "repo_path": "",
+    "analyzed_at": "",
+    "tool_version": "0.1.0",
+    "files_analyzed": 0,
+    "total_functions": 0,
+    "total_lines": 0,
+    "entry_points": []
+  },
+  "summary": {
+    "dead_functions": 0,
+    "dead_lines": 0,
+    "duplicate_clusters": 0,
+    "duplicate_lines": 0,
+    "safe_to_skip_lines": 0,
+    "safe_to_skip_pct": 0.0
+  },
+  "findings": [
+    {
+      "id": "F001",
+      "type": "dead_code",
+      "symbol": "pkg.mod.func",
+      "file": "pkg/mod.py",
+      "line_start": 0,
+      "line_end": 0,
+      "lines": 0,
+      "reason": "",
+      "evidence": {
+        "callers": [],
+        "duplicate_of": []
+      },
+      "confidence": "high",
+      "caveats": [],
+      "priority_score": 0
+    }
+  ]
+}
