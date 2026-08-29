@@ -182,7 +182,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            overflow: hidden;
+            overflow-x: auto;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
             margin-bottom: 3rem;
         }}
@@ -197,6 +197,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             border-collapse: collapse;
             text-align: left;
             font-size: 0.925rem;
+            table-layout: auto;
         }}
 
         th {{
@@ -244,12 +245,20 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-weight: 600;
             color: var(--primary);
+            max-width: 380px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }}
 
         .code-file {{
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             color: var(--text-muted);
             font-size: 0.875rem;
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }}
 
         /* BADGES */
@@ -289,6 +298,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             background: #ffffff;
             border-radius: 0 8px 8px 0;
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+            word-break: break-word;
         }}
 
         .detail-panel p {{
@@ -409,8 +419,8 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
                     <tr class="data-row" onclick="toggleDetail('{f_id}')">
                         <td><strong>{priority}</strong></td>
                         <td>{type_badge}</td>
-                        <td class="code-sym">{html.escape(f_sym)}</td>
-                        <td class="code-file">{html.escape(loc_str)}</td>
+                        <td class="code-sym" title="{html.escape(f_sym)}">{html.escape(f_sym)}</td>
+                        <td class="code-file" title="{html.escape(loc_str)}">{html.escape(loc_str)}</td>
                         <td>{loc}</td>
                         <td>{conf_badge}</td>
                     </tr>
@@ -457,8 +467,8 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             html_content += f"""
                     <tr>
                         <td><strong>{html.escape(f_id)}</strong></td>
-                        <td class="code-sym">{html.escape(f_sym)}</td>
-                        <td class="code-file">{html.escape(loc_str)}</td>
+                        <td class="code-sym" title="{html.escape(f_sym)}">{html.escape(f_sym)}</td>
+                        <td class="code-file" title="{html.escape(loc_str)}">{html.escape(loc_str)}</td>
                         <td>{html.escape(reason)}<br/><span style="color: var(--review-txt); font-size: 0.825rem;">{html.escape(caveats)}</span></td>
                     </tr>
 """
