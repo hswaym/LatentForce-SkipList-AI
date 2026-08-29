@@ -37,6 +37,9 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             --border-color: #e2e8f0;
             --primary: #2563eb;
             --primary-bg: #eff6ff;
+            --review-bg: #fffbeb;
+            --review-border: #fde68a;
+            --review-txt: #b45309;
             --dead-badge-bg: #fef2f2;
             --dead-badge-txt: #dc2626;
             --dup-badge-bg: #f3e8ff;
@@ -54,12 +57,12 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
-            padding: 2rem 1rem;
+            padding: 2.5rem 1.5rem;
             line-height: 1.5;
         }}
 
         .container {{
-            max-width: 1100px;
+            max-width: 1150px;
             margin: 0 auto;
         }}
 
@@ -68,13 +71,13 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 2rem;
-            margin-bottom: 1.5rem;
+            padding: 2.25rem;
+            margin-bottom: 1.75rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }}
 
         .hero-headline {{
-            font-size: 2.5rem;
+            font-size: 2.75rem;
             font-weight: 800;
             color: var(--primary);
             margin: 0 0 1.25rem 0;
@@ -83,45 +86,52 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
         .tiles-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.25rem;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
         }}
 
         .tile {{
             background-color: var(--primary-bg);
             border: 1px solid #dbeafe;
-            border-radius: 8px;
-            padding: 1rem 1.25rem;
+            border-radius: 10px;
+            padding: 1.15rem 1.25rem;
+        }}
+
+        .tile-review {{
+            background-color: var(--review-bg);
+            border-color: var(--review-border);
         }}
 
         .tile-val {{
-            font-size: 1.75rem;
-            font-weight: 700;
+            font-size: 1.85rem;
+            font-weight: 800;
             color: var(--text-main);
         }}
 
         .tile-lbl {{
-            font-size: 0.85rem;
+            font-size: 0.825rem;
             color: var(--text-muted);
             text-transform: uppercase;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.05em;
+            margin-top: 0.2rem;
         }}
 
         .hero-sub {{
             font-size: 0.95rem;
             color: var(--text-muted);
             border-top: 1px solid var(--border-color);
-            padding-top: 1rem;
+            padding-top: 1.15rem;
             margin: 0;
         }}
 
         .hero-sub code {{
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             background: #f1f5f9;
-            padding: 0.15rem 0.35rem;
+            padding: 0.15rem 0.4rem;
             border-radius: 4px;
+            color: var(--text-main);
         }}
 
         /* METHODOLOGY */
@@ -129,17 +139,17 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             background: #f0fdf4;
             border: 1px solid #bbf7d0;
             color: #166534;
-            border-radius: 8px;
-            padding: 0.9rem 1.25rem;
-            font-size: 0.9rem;
-            margin-bottom: 2rem;
+            border-radius: 10px;
+            padding: 1rem 1.35rem;
+            font-size: 0.925rem;
+            margin-bottom: 2.25rem;
         }}
 
         /* SECTION HEADERS */
         h2 {{
-            font-size: 1.35rem;
-            font-weight: 700;
-            margin: 0 0 1rem 0;
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin: 0 0 1.15rem 0;
             color: var(--text-main);
         }}
 
@@ -150,7 +160,12 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            margin-bottom: 2.5rem;
+            margin-bottom: 2.75rem;
+        }}
+
+        .review-card {{
+            border-color: var(--review-border);
+            box-shadow: 0 1px 4px rgba(217, 119, 6, 0.08);
         }}
 
         table {{
@@ -162,10 +177,10 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
         th {{
             background: #f8fafc;
-            padding: 0.85rem 1rem;
+            padding: 0.9rem 1.15rem;
             font-size: 0.8rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
             color: var(--text-muted);
             border-bottom: 1px solid var(--border-color);
             cursor: pointer;
@@ -180,12 +195,12 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
         th .sort-icon {{
             display: inline-block;
-            margin-left: 0.25rem;
-            opacity: 0.4;
+            margin-left: 0.35rem;
+            opacity: 0.5;
         }}
 
         td {{
-            padding: 0.85rem 1rem;
+            padding: 0.9rem 1.15rem;
             border-bottom: 1px solid var(--border-color);
             vertical-align: middle;
         }}
@@ -214,12 +229,12 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         /* BADGES */
         .badge {{
             display: inline-block;
-            padding: 0.2rem 0.5rem;
-            border-radius: 4px;
+            padding: 0.25rem 0.55rem;
+            border-radius: 5px;
             font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.03em;
+            letter-spacing: 0.04em;
         }}
 
         .badge-dead {{ background: var(--dead-badge-bg); color: var(--dead-badge-txt); }}
@@ -239,11 +254,13 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         }}
 
         .detail-panel {{
-            padding: 1rem 1.25rem;
+            padding: 1.15rem 1.35rem;
             font-size: 0.875rem;
             color: var(--text-main);
-            border-left: 3px solid var(--primary);
+            border-left: 4px solid var(--primary);
             margin: 0.25rem 0;
+            background: #ffffff;
+            border-radius: 0 6px 6px 0;
         }}
 
         .detail-panel p {{
@@ -258,10 +275,10 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         .empty-state {{
             background: var(--card-bg);
             border: 1px dashed var(--border-color);
-            border-radius: 8px;
-            padding: 1.5rem;
+            border-radius: 10px;
+            padding: 1.75rem;
             color: var(--text-muted);
-            font-size: 0.9rem;
+            font-size: 0.925rem;
             text-align: center;
         }}
 
@@ -270,9 +287,9 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             text-align: center;
             font-size: 0.825rem;
             color: var(--text-muted);
-            margin-top: 3rem;
+            margin-top: 3.5rem;
             border-top: 1px solid var(--border-color);
-            padding-top: 1.5rem;
+            padding-top: 1.75rem;
         }}
     </style>
 </head>
@@ -291,7 +308,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
                     <div class="tile-val">{summary.get('duplicate_clusters', 0)}</div>
                     <div class="tile-lbl">Duplicate Clusters ({summary.get('duplicate_lines', 0)} lines)</div>
                 </div>
-                <div class="tile">
+                <div class="tile tile-review">
                     <div class="tile-val">{summary.get('needs_review_functions', 0)}</div>
                     <div class="tile-lbl">Needs Review ({summary.get('needs_review_lines', 0)} lines)</div>
                 </div>
@@ -318,12 +335,12 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             <table id="findingsTable">
                 <thead>
                     <tr>
-                        <th onclick="sortTable(0, 'number')">Priority <span class="sort-icon">▼</span></th>
-                        <th onclick="sortTable(1, 'string')">Type <span class="sort-icon">↕</span></th>
-                        <th onclick="sortTable(2, 'string')">Symbol <span class="sort-icon">↕</span></th>
-                        <th onclick="sortTable(3, 'string')">File:Lines <span class="sort-icon">↕</span></th>
-                        <th onclick="sortTable(4, 'number')">LOC <span class="sort-icon">↕</span></th>
-                        <th onclick="sortTable(5, 'string')">Confidence <span class="sort-icon">↕</span></th>
+                        <th onclick="sortTable(0, 'number')">Priority <span class="sort-icon" id="sort-0">▼</span></th>
+                        <th onclick="sortTable(1, 'string')">Type <span class="sort-icon" id="sort-1">↕</span></th>
+                        <th onclick="sortTable(2, 'string')">Symbol <span class="sort-icon" id="sort-2">↕</span></th>
+                        <th onclick="sortTable(3, 'string')">File:Lines <span class="sort-icon" id="sort-3">↕</span></th>
+                        <th onclick="sortTable(4, 'number')">LOC <span class="sort-icon" id="sort-4">↕</span></th>
+                        <th onclick="sortTable(5, 'string')">Confidence <span class="sort-icon" id="sort-5">↕</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -389,14 +406,14 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
     if low_conf_findings:
         html_content += """
-        <div class="table-card">
+        <div class="table-card review-card">
             <table>
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Symbol</th>
-                        <th>File:Lines</th>
-                        <th>Reason / Caveats</th>
+                        <th style="width: 80px;">ID</th>
+                        <th style="width: 220px;">Symbol</th>
+                        <th style="width: 180px;">File:Lines</th>
+                        <th>Reason / Dynamic-Dispatch Caveats</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -414,7 +431,7 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
                         <td><strong>{html.escape(f_id)}</strong></td>
                         <td class="code-sym">{html.escape(f_sym)}</td>
                         <td class="code-file">{html.escape(loc_str)}</td>
-                        <td>{html.escape(reason)} {html.escape(caveats)}</td>
+                        <td>{html.escape(reason)}<br/><span style="color: var(--review-txt); font-size: 0.825rem;">{html.escape(caveats)}</span></td>
                     </tr>
 """
         html_content += """
@@ -455,6 +472,13 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             const isAsc = !sortDirs[colIndex];
             sortDirs[colIndex] = isAsc;
 
+            for (let i = 0; i <= 5; i++) {{
+                const icon = document.getElementById('sort-' + i);
+                if (icon) {{
+                    icon.textContent = (i === colIndex) ? (isAsc ? '▲' : '▼') : '↕';
+                }}
+            }}
+
             dataRows.sort((a, b) => {{
                 let aVal = a.cells[colIndex].textContent.trim();
                 let bVal = b.cells[colIndex].textContent.trim();
@@ -469,11 +493,15 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             }});
 
             dataRows.forEach(row => {{
-                const detailId = row.getAttribute('onclick').match(/'([^']+)'/)[1];
-                const detailRow = document.getElementById('detail-' + detailId);
-                tbody.appendChild(row);
-                if (detailRow) {{
-                    tbody.appendChild(detailRow);
+                const onclickAttr = row.getAttribute('onclick') || '';
+                const match = onclickAttr.match(/'([^']+)'/);
+                if (match) {{
+                    const detailId = match[1];
+                    const detailRow = document.getElementById('detail-' + detailId);
+                    tbody.appendChild(row);
+                    if (detailRow) {{
+                        tbody.appendChild(detailRow);
+                    }}
                 }}
             }});
         }}
