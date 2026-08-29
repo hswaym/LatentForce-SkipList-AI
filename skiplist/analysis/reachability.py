@@ -1,4 +1,5 @@
 import ast
+import fnmatch
 import re
 from pathlib import Path
 from typing import List, Set, Dict, Any, Optional
@@ -39,6 +40,102 @@ def extract_module_alls(modules: Dict[Path, ast.Module], repo_root: Path) -> Dic
             module_alls[mod_name] = exported
 
     return module_alls
+
+
+def extract_test_discovery_seeds(
+    modules: Dict[Path, ast.Module],
+    symbol_table: List[Symbol],
+    repo_root: Path
+) -> Set[str]:
+    """Extract test functions, unittest.TestCase methods, and pytest fixtures as implicitly reachable seeds."""
+    test_seeds = set()
+    test_case_classes = set()
+
+    for file_path, tree in modules.items():
+        if tree is None:
+            continue
+
+        file_name = file_path.name
+        is_test_file = fnmatch.fnmatch(file_name, "test_*.py") or fnmatch.fnmatch(file_name, "*_test.py")
+        mod_name = get_module_dotted_name(file_path.resolve(), repo_root.resolve())
+
+        # First pass: identify classes that subclass TestCase
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                is_test_case = False
+                for base in node.bases:
+                    if isinstance(base, ast.Name) and "TestCase" in base.id:
+                        is_test_case = True
+                    elif isinstance(base, ast.Attribute) and "TestCase" in base.attr:
+                        is_test_case = True
+
+                if is_test_case or (is_test_file and (node.name.startswith("Test") or node.name.endswith("Test"))):
+                    qual_cls = f"{mod_name}.{node.name}" if mod_name else node.name
+                    test_case_classes.add(qual_cls)
+
+    # Second pass: mark methods of TestCase classes, test_ functions in test files, and pytest.fixture
+    for sym in symbol_table:
+        parts = sym.qualified_name.split(".")
+        simple_name = parts[-1]
+        parent_qual = ".".join(parts[:-1])
+        filename = Path(sym.file).name
+        is_test_file = fnmatch.fnmatch(filename, "test_*.py") or fnmatch.fnmatch(filename, "*_test.py")
+
+        # 1. Any method in a class that subclasses TestCase or is a Test class in test file
+        if parent_qual in test_case_classes:
+            test_seeds.add(sym.qualified_name)
+
+        # 2. Any function/method named test_* in test_*.py or *_test.py
+        if is_test_file and simple_name.startswith("test_"):
+            test_seeds.add(sym.qualified_name)
+
+    # Third pass: check pytest.fixture decorator
+    for file_path, tree in modules.items():
+        if tree is None:
+            continue
+
+        mod_name = get_module_dotted_name(file_path.resolve(), repo_root.resolve())
+
+        class FixtureVisitor(ast.NodeVisitor):
+            def __init__(self):
+                self.scope: List[str] = [mod_name] if mod_name else []
+
+            def visit_ClassDef(self, node: ast.ClassDef):
+                self.scope.append(node.name)
+                self.generic_visit(node)
+                self.scope.pop()
+
+            def visit_FunctionDef(self, node: ast.FunctionDef):
+                self._check_fixture(node)
+
+            def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+                self._check_fixture(node)
+
+            def _check_fixture(self, node: ast.FunctionDef | ast.AsyncFunctionDef):
+                qual_name = f"{'.'.join(self.scope)}.{node.name}" if self.scope else node.name
+                for dec in node.decorator_list:
+                    is_fixture = False
+                    if isinstance(dec, ast.Attribute) and dec.attr == "fixture":
+                        is_fixture = True
+                    elif isinstance(dec, ast.Name) and dec.id == "fixture":
+                        is_fixture = True
+                    elif isinstance(dec, ast.Call):
+                        if isinstance(dec.func, ast.Attribute) and dec.func.attr == "fixture":
+                            is_fixture = True
+                        elif isinstance(dec.func, ast.Name) and dec.func.id == "fixture":
+                            is_fixture = True
+
+                    if is_fixture:
+                        test_seeds.add(qual_name)
+                        break
+
+                self.scope.append(node.name)
+                self.generic_visit(node)
+                self.scope.pop()
+
+        FixtureVisitor().visit(tree)
+
+    return test_seeds
 
 
 def detect_dynamic_modules(modules: Dict[Path, ast.Module], repo_root: Path) -> Set[str]:
@@ -91,8 +188,11 @@ def find_dead_code(
     seeds = set(entry_points)
 
     module_alls = extract_module_alls(modules, repo_root) if modules and repo_root else {}
+    test_seeds = extract_test_discovery_seeds(modules, symbol_table, repo_root) if modules and repo_root else set()
 
     # Add implicit entry points / false positive guards:
+    seeds.update(test_seeds)
+
     for sym in symbol_table:
         # Dunder methods/functions are implicitly reachable
         if is_dunder_symbol(sym):
