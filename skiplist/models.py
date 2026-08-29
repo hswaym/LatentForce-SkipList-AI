@@ -58,7 +58,32 @@ class Finding:
 
 
 @dataclass
+class GraphNode:
+    id: str
+    symbol: str
+    file: str
+    loc: int
+    status: str  # "reachable" | "dead" | "duplicate" | "needs_review"
+    functions_count: Optional[int] = None
+
+
+@dataclass
+class GraphEdge:
+    source: str
+    target: str
+
+
+@dataclass
+class GraphExport:
+    nodes: List[Dict[str, Any]] = field(default_factory=list)
+    edges: List[Dict[str, Any]] = field(default_factory=list)
+    collapsed: bool = False
+    collapse_reason: Optional[str] = None
+
+
+@dataclass
 class Report:
     meta: Meta
     summary: Summary
     findings: List[Finding] = field(default_factory=list)
+    graph: Optional[GraphExport] = None

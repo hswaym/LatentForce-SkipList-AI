@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 from typing import Dict, List, Set, Any, Optional
 import networkx as nx
-from skiplist.models import Symbol
+from skiplist.models import Symbol, Finding, GraphExport
 from skiplist.analysis.symbols import get_module_dotted_name
 
 
@@ -52,7 +52,6 @@ def build_call_graph(modules: Dict[Path, ast.Module], symbol_table: List[Symbol]
 
     symbol_map: Dict[str, Symbol] = {sym.qualified_name: sym for sym in symbol_table}
 
-    # Add each symbol to graph keyed strictly by qualified_name
     for qual_name, sym in symbol_map.items():
         graph.add_node(qual_name, symbol=sym)
 
@@ -160,3 +159,99 @@ def _extract_calls_from_module(
 
     visitor = CallVisitor()
     visitor.visit(tree)
+
+
+def build_graph_export(
+    call_graph: nx.DiGraph,
+    symbol_table: List[Symbol],
+    findings: List[Finding]
+) -> GraphExport:
+    """Serialize the call graph for findings.json export with a 300-node collapse guard."""
+    finding_map: Dict[str, Finding] = {f.symbol: f for f in findings}
+    func_symbols = [s for s in symbol_table if s.kind in ("function", "method")]
+
+    func_statuses: Dict[str, str] = {}
+    func_to_file: Dict[str, str] = {}
+
+    for sym in func_symbols:
+        func_to_file[sym.qualified_name] = sym.file
+        if sym.qualified_name in finding_map:
+            f = finding_map[sym.qualified_name]
+            if f.confidence == "low":
+                status = "needs_review"
+            elif f.type == "duplicate":
+                status = "duplicate"
+            elif f.type == "dead_code":
+                status = "dead"
+            else:
+                status = "reachable"
+        else:
+            status = "reachable"
+
+        func_statuses[sym.qualified_name] = status
+
+    if len(func_symbols) > 300:
+        file_symbols_map: Dict[str, List[Symbol]] = {}
+        for sym in func_symbols:
+            file_symbols_map.setdefault(sym.file, []).append(sym)
+
+        nodes: List[Dict[str, Any]] = []
+        for file_path, syms in sorted(file_symbols_map.items()):
+            statuses = [func_statuses[s.qualified_name] for s in syms]
+            if any(st == "reachable" for st in statuses):
+                file_status = "reachable"
+            elif any(st == "needs_review" for st in statuses):
+                file_status = "needs_review"
+            elif any(st == "duplicate" for st in statuses):
+                file_status = "duplicate"
+            else:
+                file_status = "dead"
+
+            total_loc = sum(s.lines for s in syms)
+            nodes.append({
+                "id": file_path,
+                "symbol": file_path,
+                "file": file_path,
+                "loc": total_loc,
+                "status": file_status,
+                "functions_count": len(syms)
+            })
+
+        edges_set = set()
+        for u, v in call_graph.edges():
+            source_file = func_to_file.get(u)
+            target_file = func_to_file.get(v)
+            if source_file and target_file and source_file != target_file:
+                edges_set.add((source_file, target_file))
+
+        edges = [{"source": u, "target": v} for u, v in sorted(edges_set)]
+
+        return GraphExport(
+            nodes=nodes,
+            edges=edges,
+            collapsed=True,
+            collapse_reason=f"Graph exceeds 300 nodes ({len(func_symbols)} functions). Collapsed to file-level module graph for readability and performance."
+        )
+
+    else:
+        nodes = []
+        for sym in sorted(func_symbols, key=lambda s: s.qualified_name):
+            nodes.append({
+                "id": sym.qualified_name,
+                "symbol": sym.qualified_name,
+                "file": sym.file,
+                "loc": sym.lines,
+                "status": func_statuses[sym.qualified_name]
+            })
+
+        edges = []
+        for u, v in sorted(call_graph.edges()):
+            if u in func_statuses and v in func_statuses:
+                edges.append({"source": u, "target": v})
+
+        return GraphExport(
+            nodes=nodes,
+            edges=edges,
+            collapsed=False,
+            collapse_reason=None
+        )

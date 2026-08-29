@@ -6,7 +6,7 @@ from pathlib import Path
 from skiplist.analysis.discovery import find_python_files
 from skiplist.analysis.parsing import parse_file
 from skiplist.analysis.symbols import build_symbol_table
-from skiplist.analysis.callgraph import build_call_graph
+from skiplist.analysis.callgraph import build_call_graph, build_graph_export
 from skiplist.analysis.entrypoints import detect_entry_points
 from skiplist.analysis.reachability import find_dead_code, detect_dynamic_modules
 from skiplist.analysis.duplicates import cluster_duplicates
@@ -151,10 +151,13 @@ def analyze_command(args: argparse.Namespace) -> None:
         safe_to_skip_pct=safe_to_skip_pct
     )
 
+    graph_export = build_graph_export(call_graph, symbol_table, sorted_findings)
+
     report = Report(
         meta=meta,
         summary=summary,
-        findings=sorted_findings
+        findings=sorted_findings,
+        graph=graph_export
     )
 
     report_dict = asdict(report)
