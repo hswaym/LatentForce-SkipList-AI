@@ -15,7 +15,10 @@ ENV/
 *.pem
 *.key
 secrets.json
+# Session logs and transcripts
 session-*.md
+LatentSkipList.md
+
 
 
 # Distribution / packaging
