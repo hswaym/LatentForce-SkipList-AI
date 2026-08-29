@@ -1,2 +1,2 @@
 # LatentForce-SkipList-AI
-Creating a fully landed project  using latentcode to solve unused or unnecessary code problems.
+Pre-migration code-triage tool — finds dead & duplicate code so migration teams scope real work first.
