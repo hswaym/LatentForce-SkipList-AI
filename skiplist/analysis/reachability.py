@@ -21,28 +21,27 @@ def find_dead_code(
     # Initial seeds: explicit entry points
     seeds = set(entry_points)
 
-    # Add implicit entry points / reachable guards:
-    for sym in symbol_table:
-        # Dunder methods in classes are treated as implicitly reachable
-        if sym.kind == "method" and is_dunder_symbol(sym):
-            seeds.add(sym.qualified_name)
+    symbol_map: Dict[str, Symbol] = {sym.qualified_name: sym for sym in symbol_table}
 
-        # Symbols exported in module __all__
+    # Add implicit entry points / reachable guards:
+    for qual_name, sym in symbol_map.items():
+        if sym.kind == "method" and is_dunder_symbol(sym):
+            seeds.add(qual_name)
+
         if module_alls:
-            mod_name = ".".join(sym.qualified_name.split(".")[:-1])
-            simple_name = sym.qualified_name.split(".")[-1]
+            mod_name = ".".join(qual_name.split(".")[:-1])
+            simple_name = qual_name.split(".")[-1]
             if mod_name in module_alls and simple_name in module_alls[mod_name]:
-                seeds.add(sym.qualified_name)
+                seeds.add(qual_name)
 
     # Perform BFS / reachability traversal over call_graph
     for seed in seeds:
         if seed in call_graph:
             reached.add(seed)
-            # Traverse all reachable nodes in call graph
             descendants = nx.descendants(call_graph, seed)
             reached.update(descendants)
 
-    # Dead candidates = symbols in symbol_table that were never reached
+    # Dead candidates = Symbol objects whose qualified_name was never reached
     dead_symbols = [
         sym for sym in symbol_table
         if sym.qualified_name not in reached
