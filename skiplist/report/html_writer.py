@@ -17,7 +17,37 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
     repo_raw = meta.get("repo_path", "")
     repo_name = os.path.basename(repo_raw.rstrip("/\\")) if repo_raw else "Repository"
 
-    entry_points_str = ", ".join(meta.get("entry_points", [])) or "None"
+    all_entry_points = meta.get("entry_points", [])
+    declared_entries = []
+    test_entries = []
+
+    for ep in all_entry_points:
+        parts = ep.split(".")
+        simple_name = parts[-1]
+        is_test = (
+            simple_name.startswith("test_")
+            or simple_name.startswith("Test")
+            or any("test" in p.lower() for p in parts[:-1])
+        )
+        if is_test:
+            test_entries.append(ep)
+        else:
+            declared_entries.append(ep)
+
+    declared_str = ", ".join(declared_entries) if declared_entries else "None"
+    test_str = ", ".join(test_entries) if test_entries else ""
+    n_test_entries = len(test_entries)
+
+    if n_test_entries > 0:
+        entry_points_html = (
+            f'<span class="entry-declared"><code>{html.escape(declared_str)}</code></span> '
+            f'<details class="entry-tests" style="display: inline-block; margin-left: 0.5rem; vertical-align: top;">'
+            f'<summary style="cursor: pointer; color: var(--primary); font-weight: 600;">+ {n_test_entries} test/fixture methods (auto-excluded from findings)</summary>'
+            f'<span class="entry-test-list" style="display: block; margin-top: 0.35rem; max-width: 600px; word-break: break-word;"><code>{html.escape(test_str)}</code></span>'
+            f'</details>'
+        )
+    else:
+        entry_points_html = f'<span class="entry-declared"><code>{html.escape(declared_str)}</code></span>'
 
     high_med_findings = [f for f in findings if f.get("confidence") != "low"]
     low_conf_findings = [f for f in findings if f.get("confidence") == "low"]
@@ -357,8 +387,8 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             </div>
 
             <p class="hero-sub">
-                Analyzed <strong>{html.escape(repo_name)}</strong> — {meta.get('files_analyzed', 0)} files, {meta.get('total_functions', 0)} functions, {meta.get('total_lines', 0)} lines.
-                Entry points: <code>{html.escape(entry_points_str)}</code>.
+                Analyzed <strong>{html.escape(repo_name)}</strong> — {meta.get('files_analyzed', 0)} files, {meta.get('total_functions', 0)} functions, {meta.get('total_lines', 0)} lines.<br/>
+                Entry points: {entry_points_html}
             </p>
         </div>
 
