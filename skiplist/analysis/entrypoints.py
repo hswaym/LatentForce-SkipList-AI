@@ -6,18 +6,30 @@ from skiplist.models import Symbol
 from skiplist.analysis.symbols import get_module_dotted_name
 
 
+FRAMEWORK_DECORATOR_ATTRS = {
+    # Flask / FastAPI / Web routes
+    "route", "get", "post", "put", "delete", "patch", "head", "options", "websocket",
+    # Click / Typer CLI commands
+    "command", "group",
+    # Celery tasks
+    "task", "shared_task"
+}
+
+FRAMEWORK_DECORATOR_NAMES = {
+    "shared_task", "task", "command", "group", "route"
+}
+
+
 def is_if_main_node(node: ast.If) -> bool:
     """Check if an AST If node represents `if __name__ == '__main__':`."""
     test = node.test
     if not isinstance(test, ast.Compare):
         return False
 
-    # Check left side is __name__
     left_is_name = isinstance(test.left, ast.Name) and test.left.id == "__name__"
     if not left_is_name:
         return False
 
-    # Check comparator is '__main__'
     for comp in test.comparators:
         if isinstance(comp, ast.Constant) and comp.value == "__main__":
             return True
@@ -33,7 +45,6 @@ def _extract_if_main_calls(tree: ast.AST, current_module: str, known_symbols: Se
     class IfMainVisitor(ast.NodeVisitor):
         def visit_If(self, node: ast.If):
             if is_if_main_node(node):
-                # Inspect calls inside the if __name__ == '__main__' block
                 for body_node in node.body:
                     for n in ast.walk(body_node):
                         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
@@ -47,6 +58,53 @@ def _extract_if_main_calls(tree: ast.AST, current_module: str, known_symbols: Se
     return entries
 
 
+def _detect_framework_routes(tree: ast.AST, current_module: str, known_symbols: Set[str]) -> Set[str]:
+    entries = set()
+
+    class FrameworkVisitor(ast.NodeVisitor):
+        def __init__(self):
+            self.scope: List[str] = [current_module] if current_module else []
+
+        def visit_ClassDef(self, node: ast.ClassDef):
+            self.scope.append(node.name)
+            self.generic_visit(node)
+            self.scope.pop()
+
+        def visit_FunctionDef(self, node: ast.FunctionDef):
+            self._check_func(node)
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+            self._check_func(node)
+
+        def _check_func(self, node: ast.FunctionDef | ast.AsyncFunctionDef):
+            qual_name = f"{'.'.join(self.scope)}.{node.name}" if self.scope else node.name
+
+            for decorator in node.decorator_list:
+                is_route = False
+                # E.g. @app.route(...), @router.get(...)
+                if isinstance(decorator, ast.Call):
+                    func_expr = decorator.func
+                    if isinstance(func_expr, ast.Attribute) and func_expr.attr in FRAMEWORK_DECORATOR_ATTRS:
+                        is_route = True
+                    elif isinstance(func_expr, ast.Name) and func_expr.id in FRAMEWORK_DECORATOR_NAMES:
+                        is_route = True
+                elif isinstance(decorator, ast.Attribute) and decorator.attr in FRAMEWORK_DECORATOR_ATTRS:
+                    is_route = True
+                elif isinstance(decorator, ast.Name) and decorator.id in FRAMEWORK_DECORATOR_NAMES:
+                    is_route = True
+
+                if is_route and qual_name in known_symbols:
+                    entries.add(qual_name)
+                    break
+
+            self.scope.append(node.name)
+            self.generic_visit(node)
+            self.scope.pop()
+
+    FrameworkVisitor().visit(tree)
+    return entries
+
+
 def _detect_console_scripts(repo_root: Path) -> Set[str]:
     scripts = set()
     pyproject_path = repo_root / "pyproject.toml"
@@ -54,7 +112,6 @@ def _detect_console_scripts(repo_root: Path) -> Set[str]:
     if pyproject_path.exists():
         try:
             content = pyproject_path.read_text(encoding="utf-8")
-            # Parse console_scripts targets e.g. skiplist = "skiplist.cli:main"
             matches = re.findall(r'[\w\-]+\s*=\s*["\']([\w\.]+):([\w\.]+)["\']', content)
             for mod, func in matches:
                 scripts.add(f"{mod}.{func}")
@@ -78,7 +135,8 @@ def detect_entry_points(
     modules: Dict[Path, ast.Module],
     symbol_table: List[Symbol],
     user_entries: Optional[List[str]] = None,
-    repo_root: Optional[Path] = None
+    repo_root: Optional[Path] = None,
+    frameworks_enabled: bool = False
 ) -> Set[str]:
     """Detect entry points in the codebase."""
     entry_points = set()
@@ -97,10 +155,13 @@ def detect_entry_points(
         if_main_entries = _extract_if_main_calls(tree, current_module, known_symbols)
         entry_points.update(if_main_entries)
 
+        if frameworks_enabled:
+            fw_entries = _detect_framework_routes(tree, current_module, known_symbols)
+            entry_points.update(fw_entries)
+
     # (b) A module-level function literally named `main`
     for sym in symbol_table:
         if sym.kind == "function" and (sym.qualified_name.endswith(".main") or sym.qualified_name == "main"):
-            # Ensure it is a top-level module function (only one dot or module.main)
             parts = sym.qualified_name.split(".")
             if len(parts) <= 2:
                 entry_points.add(sym.qualified_name)
@@ -117,7 +178,6 @@ def detect_entry_points(
             if entry in known_symbols:
                 entry_points.add(entry)
             else:
-                # Check if user passed a module name, e.g. "app" or "pkg.mod"
                 for sym in symbol_table:
                     if sym.qualified_name.startswith(f"{entry}."):
                         entry_points.add(sym.qualified_name)

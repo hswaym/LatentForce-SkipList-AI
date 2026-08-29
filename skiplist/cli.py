@@ -35,7 +35,13 @@ def analyze_command(args: argparse.Namespace) -> None:
 
     symbol_table = build_symbol_table(modules, repo_root)
     call_graph = build_call_graph(modules, symbol_table, repo_root)
-    entry_points = detect_entry_points(modules, symbol_table, user_entries=args.entry, repo_root=repo_root)
+    entry_points = detect_entry_points(
+        modules,
+        symbol_table,
+        user_entries=args.entry,
+        repo_root=repo_root,
+        frameworks_enabled=getattr(args, "frameworks", False)
+    )
 
     dead_symbols = find_dead_code(call_graph, entry_points, symbol_table, modules, repo_root)
     dead_symbol_names = {s.qualified_name for s in dead_symbols}
@@ -112,7 +118,6 @@ def analyze_command(args: argparse.Namespace) -> None:
     for idx, f in enumerate(sorted_findings, start=1):
         f.id = f"F{idx:03d}"
 
-    # Summary accounting:
     high_dead_findings = [f for f in sorted_findings if f.type == "dead_code" and f.confidence != "low"]
     low_conf_findings = [f for f in sorted_findings if f.confidence == "low"]
 
@@ -203,7 +208,13 @@ def deadcode_command(args: argparse.Namespace) -> None:
 
     symbol_table = build_symbol_table(modules, repo_root)
     call_graph = build_call_graph(modules, symbol_table, repo_root)
-    entry_points = detect_entry_points(modules, symbol_table, user_entries=args.entry, repo_root=repo_root)
+    entry_points = detect_entry_points(
+        modules,
+        symbol_table,
+        user_entries=args.entry,
+        repo_root=repo_root,
+        frameworks_enabled=getattr(args, "frameworks", False)
+    )
 
     dead_symbols = find_dead_code(call_graph, entry_points, symbol_table, modules, repo_root)
 
@@ -228,6 +239,7 @@ def main() -> None:
     analyze_parser.add_argument("--exclude", action="append", default=[], help="Exclude file/directory path pattern (repeatable)")
     analyze_parser.add_argument("--out", default="report.html", help="Output file path (default: report.html)")
     analyze_parser.add_argument("--format", choices=["html", "json", "both"], default="html", help="Report format (default: html)")
+    analyze_parser.add_argument("--frameworks", action="store_true", help="Enable framework-aware entry point detection (Flask/FastAPI/Click/Celery)")
 
     # Symbols command
     symbols_parser = subparsers.add_parser("symbols", help="Build and print symbol table for a Python codebase.")
@@ -239,6 +251,7 @@ def main() -> None:
     deadcode_parser.add_argument("path", help="Path to Python codebase root directory")
     deadcode_parser.add_argument("--entry", action="append", default=[], help="Specify entry point file/module (repeatable)")
     deadcode_parser.add_argument("--exclude", action="append", default=[], help="Exclude file/directory path pattern (repeatable)")
+    deadcode_parser.add_argument("--frameworks", action="store_true", help="Enable framework-aware entry point detection")
 
     args = parser.parse_args()
 
