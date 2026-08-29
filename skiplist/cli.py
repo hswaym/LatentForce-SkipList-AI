@@ -1,5 +1,6 @@
 import argparse
 import ast
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from skiplist.analysis.discovery import find_python_files
@@ -12,6 +13,7 @@ from skiplist.analysis.duplicates import cluster_duplicates
 from skiplist.analysis.scoring import compute_priority_score
 from skiplist.models import Report, Meta, Summary, Finding, Evidence
 from skiplist.report.json_writer import write_json
+from skiplist.report.html_writer import write_html
 
 
 def analyze_command(args: argparse.Namespace) -> None:
@@ -129,8 +131,17 @@ def analyze_command(args: argparse.Namespace) -> None:
         findings=sorted_findings
     )
 
+    report_dict = asdict(report)
+
     if args.format == "json":
         write_json(report, args.out)
+    elif args.format == "html":
+        write_html(report_dict, args.out)
+    elif args.format == "both":
+        html_out = args.out if args.out.endswith(".html") else "report.html"
+        json_out = "findings.json" if args.out == "report.html" else (args.out.rsplit(".", 1)[0] + ".json")
+        write_html(report_dict, html_out)
+        write_json(report, json_out)
 
     print(
         f"Safe to skip: {safe_to_skip_lines} lines across {len(sorted_findings)} findings "
@@ -195,7 +206,7 @@ def main() -> None:
     analyze_parser.add_argument("--entry", action="append", default=[], help="Specify entry point file/module (repeatable)")
     analyze_parser.add_argument("--exclude", action="append", default=[], help="Exclude file/directory path pattern (repeatable)")
     analyze_parser.add_argument("--out", default="report.html", help="Output file path (default: report.html)")
-    analyze_parser.add_argument("--format", choices=["html", "json"], default="html", help="Report format (default: html)")
+    analyze_parser.add_argument("--format", choices=["html", "json", "both"], default="html", help="Report format (default: html)")
 
     # Symbols command
     symbols_parser = subparsers.add_parser("symbols", help="Build and print symbol table for a Python codebase.")
