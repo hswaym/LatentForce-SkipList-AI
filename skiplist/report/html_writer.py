@@ -30,39 +30,45 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
     <title>SkipList Triage Report — {html.escape(repo_name)}</title>
     <style>
         :root {{
-            --bg-color: #f8fafc;
+            --bg-color: #f1f5f9;
             --card-bg: #ffffff;
             --text-main: #0f172a;
             --text-muted: #475569;
             --border-color: #e2e8f0;
-            --primary: #2563eb;
-            --primary-bg: #eff6ff;
+            --primary: #4f46e5;
+            --primary-light: #eef2ff;
+            --primary-border: #c7d2fe;
             --review-bg: #fffbeb;
-            --review-border: #fde68a;
-            --review-txt: #b45309;
+            --review-border: #fcd34d;
+            --review-txt: #92400e;
             --dead-badge-bg: #fef2f2;
-            --dead-badge-txt: #dc2626;
-            --dup-badge-bg: #f3e8ff;
-            --dup-badge-txt: #7c3aed;
-            --conf-high-bg: #dcfce7;
-            --conf-high-txt: #16a34a;
-            --conf-med-bg: #fef3c7;
-            --conf-med-txt: #d97706;
-            --conf-low-bg: #f1f5f9;
+            --dead-badge-txt: #991b1b;
+            --dead-badge-border: #fecaca;
+            --dup-badge-bg: #faf5ff;
+            --dup-badge-txt: #6b21a8;
+            --dup-badge-border: #e9d5ff;
+            --conf-high-bg: #f0fdf4;
+            --conf-high-txt: #166534;
+            --conf-high-border: #bbf7d0;
+            --conf-med-bg: #fffbeb;
+            --conf-med-txt: #92400e;
+            --conf-med-border: #fde68a;
+            --conf-low-bg: #f8fafc;
             --conf-low-txt: #475569;
+            --conf-low-border: #e2e8f0;
         }}
 
         body {{
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0;
-            padding: 2.5rem 1.5rem;
-            line-height: 1.5;
+            padding: 3rem 1.5rem;
+            line-height: 1.6;
         }}
 
         .container {{
-            max-width: 1150px;
+            max-width: 1200px;
             margin: 0 auto;
         }}
 
@@ -70,102 +76,120 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         .hero {{
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 2.25rem;
-            margin-bottom: 1.75rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
         }}
 
         .hero-headline {{
-            font-size: 2.75rem;
+            font-size: 3rem;
             font-weight: 800;
             color: var(--primary);
-            margin: 0 0 1.25rem 0;
-            letter-spacing: -0.025em;
+            margin: 0 0 1.5rem 0;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
         }}
 
         .tiles-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 1.25rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.75rem;
         }}
 
         .tile {{
-            background-color: var(--primary-bg);
-            border: 1px solid #dbeafe;
-            border-radius: 10px;
-            padding: 1.15rem 1.25rem;
+            background-color: var(--primary-light);
+            border: 1px solid var(--primary-border);
+            border-top: 4px solid var(--primary);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }}
+
+        .tile:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08);
         }}
 
         .tile-review {{
             background-color: var(--review-bg);
             border-color: var(--review-border);
+            border-top-color: #d97706;
+        }}
+
+        .tile-review:hover {{
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.1);
         }}
 
         .tile-val {{
-            font-size: 1.85rem;
+            font-size: 2.25rem;
             font-weight: 800;
             color: var(--text-main);
+            line-height: 1.2;
         }}
 
         .tile-lbl {{
-            font-size: 0.825rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
             text-transform: uppercase;
             font-weight: 700;
-            letter-spacing: 0.05em;
-            margin-top: 0.2rem;
+            letter-spacing: 0.06em;
+            margin-top: 0.35rem;
         }}
 
         .hero-sub {{
             font-size: 0.95rem;
             color: var(--text-muted);
             border-top: 1px solid var(--border-color);
-            padding-top: 1.15rem;
+            padding-top: 1.25rem;
             margin: 0;
         }}
 
         .hero-sub code {{
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             background: #f1f5f9;
-            padding: 0.15rem 0.4rem;
-            border-radius: 4px;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
             color: var(--text-main);
+            font-size: 0.875rem;
         }}
 
         /* METHODOLOGY */
         .methodology {{
             background: #f0fdf4;
             border: 1px solid #bbf7d0;
-            color: #166534;
-            border-radius: 10px;
-            padding: 1rem 1.35rem;
+            border-left: 4px solid #16a34a;
+            color: #14532d;
+            border-radius: 12px;
+            padding: 1.15rem 1.5rem;
             font-size: 0.925rem;
-            margin-bottom: 2.25rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
         }}
 
         /* SECTION HEADERS */
         h2 {{
-            font-size: 1.4rem;
+            font-size: 1.5rem;
             font-weight: 800;
-            margin: 0 0 1.15rem 0;
+            margin: 0 0 1.25rem 0;
             color: var(--text-main);
+            letter-spacing: -0.02em;
         }}
 
         /* FINDINGS TABLE */
         .table-card {{
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            margin-bottom: 2.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            margin-bottom: 3rem;
         }}
 
         .review-card {{
             border-color: var(--review-border);
-            box-shadow: 0 1px 4px rgba(217, 119, 6, 0.08);
+            border-top: 4px solid #d97706;
         }}
 
         table {{
@@ -177,15 +201,16 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
 
         th {{
             background: #f8fafc;
-            padding: 0.9rem 1.15rem;
-            font-size: 0.8rem;
+            padding: 1rem 1.25rem;
+            font-size: 0.775rem;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.07em;
             color: var(--text-muted);
             border-bottom: 1px solid var(--border-color);
             cursor: pointer;
             user-select: none;
             white-space: nowrap;
+            font-weight: 700;
         }}
 
         th:hover {{
@@ -197,17 +222,18 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
             display: inline-block;
             margin-left: 0.35rem;
             opacity: 0.5;
+            font-size: 0.85em;
         }}
 
         td {{
-            padding: 0.9rem 1.15rem;
+            padding: 1rem 1.25rem;
             border-bottom: 1px solid var(--border-color);
             vertical-align: middle;
         }}
 
         tr.data-row {{
             cursor: pointer;
-            transition: background 0.15s ease;
+            transition: background-color 0.15s ease;
         }}
 
         tr.data-row:hover {{
@@ -229,19 +255,20 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         /* BADGES */
         .badge {{
             display: inline-block;
-            padding: 0.25rem 0.55rem;
-            border-radius: 5px;
-            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.725rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
+            border: 1px solid transparent;
         }}
 
-        .badge-dead {{ background: var(--dead-badge-bg); color: var(--dead-badge-txt); }}
-        .badge-duplicate {{ background: var(--dup-badge-bg); color: var(--dup-badge-txt); }}
-        .badge-conf-high {{ background: var(--conf-high-bg); color: var(--conf-high-txt); }}
-        .badge-conf-medium {{ background: var(--conf-med-bg); color: var(--conf-med-txt); }}
-        .badge-conf-low {{ background: var(--conf-low-bg); color: var(--conf-low-txt); }}
+        .badge-dead {{ background: var(--dead-badge-bg); color: var(--dead-badge-txt); border-color: var(--dead-badge-border); }}
+        .badge-duplicate {{ background: var(--dup-badge-bg); color: var(--dup-badge-txt); border-color: var(--dup-badge-border); }}
+        .badge-conf-high {{ background: var(--conf-high-bg); color: var(--conf-high-txt); border-color: var(--conf-high-border); }}
+        .badge-conf-medium {{ background: var(--conf-med-bg); color: var(--conf-med-txt); border-color: var(--conf-med-border); }}
+        .badge-conf-low {{ background: var(--conf-low-bg); color: var(--conf-low-txt); border-color: var(--conf-low-border); }}
 
         /* DETAIL PANEL */
         tr.detail-row {{
@@ -254,13 +281,14 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         }}
 
         .detail-panel {{
-            padding: 1.15rem 1.35rem;
+            padding: 1.25rem 1.5rem;
             font-size: 0.875rem;
             color: var(--text-main);
             border-left: 4px solid var(--primary);
-            margin: 0.25rem 0;
+            margin: 0.35rem 0;
             background: #ffffff;
-            border-radius: 0 6px 6px 0;
+            border-radius: 0 8px 8px 0;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
         }}
 
         .detail-panel p {{
@@ -275,8 +303,8 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         .empty-state {{
             background: var(--card-bg);
             border: 1px dashed var(--border-color);
-            border-radius: 10px;
-            padding: 1.75rem;
+            border-radius: 12px;
+            padding: 2rem;
             color: var(--text-muted);
             font-size: 0.925rem;
             text-align: center;
@@ -285,11 +313,11 @@ def write_html(report_data: Dict[str, Any], output_path: str | Path) -> None:
         /* FOOTER */
         footer {{
             text-align: center;
-            font-size: 0.825rem;
+            font-size: 0.85rem;
             color: var(--text-muted);
-            margin-top: 3.5rem;
+            margin-top: 4rem;
             border-top: 1px solid var(--border-color);
-            padding-top: 1.75rem;
+            padding-top: 2rem;
         }}
     </style>
 </head>
