@@ -14,6 +14,10 @@
 | :---: |
 | ![Dependency Graph](docs/screenshots/dependency-graph-fixture.png) |
 
+| CLI Triage Analysis Output | Verbose Claim-Based Test Suite Output (`pytest`) |
+| :---: | :---: |
+| ![CLI Analyze Output](docs/screenshots/cli-analyze.png) | ![CLI Pytest Output](docs/screenshots/cli-pytest.png) |
+
 ---
 
 ## 🎯 The Problem & What SkipList Does Differently
