@@ -7,7 +7,8 @@ from skiplist.analysis.entrypoints import detect_entry_points
 
 
 class TestFrameworkEntryPoints(unittest.TestCase):
-    def test_flask_fastapi_click_detection(self):
+    def test_framework_route_decorators_detected_as_reachability_roots(self):
+        """Flask, FastAPI, Click, and Celery route/command decorators are recognized as entry-point roots under --frameworks."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
             f = tmppath / "web.py"

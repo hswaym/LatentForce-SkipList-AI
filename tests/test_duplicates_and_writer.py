@@ -9,7 +9,8 @@ from skiplist.analysis.scoring import compute_priority_score
 
 
 class TestDuplicatesAndScoring(unittest.TestCase):
-    def test_duplicate_clustering_and_scoring(self):
+    def test_structural_duplicate_cluster_detected_and_keeper_selected(self):
+        """Normalized AST hashing detects cross-module structural duplicates and selects reachable keeper."""
         legacy_dir = Path("fixtures/legacy_sample").resolve()
         py_files = sorted(list(legacy_dir.glob("*.py")))
 
@@ -25,7 +26,8 @@ class TestDuplicatesAndScoring(unittest.TestCase):
         self.assertEqual(len(cluster.non_keepers), 1)
         self.assertEqual(cluster.non_keepers[0].qualified_name, "legacy_format.render_amount")
 
-    def test_priority_score(self):
+    def test_priority_score_ranks_duplicates_higher_than_dead_code(self):
+        """Priority score formula ranks duplicate merges higher than plain dead code of equal line size."""
         score_dup = compute_priority_score(5, "high", "duplicate")
         self.assertEqual(score_dup, 10)
 

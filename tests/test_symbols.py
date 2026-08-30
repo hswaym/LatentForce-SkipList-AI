@@ -8,7 +8,8 @@ from skiplist.analysis.symbols import build_symbol_table, get_module_dotted_name
 
 
 class TestSymbolsAndDiscovery(unittest.TestCase):
-    def test_discovery_and_parsing(self):
+    def test_file_discovery_ignores_venv_and_handles_syntax_errors(self):
+        """File discovery skips virtualenv folders and parsing handles syntax errors gracefully."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
             f1 = tmppath / "pkg" / "mod.py"
@@ -29,7 +30,8 @@ class TestSymbolsAndDiscovery(unittest.TestCase):
             bad_tree = parse_file(f2)
             self.assertIsNone(bad_tree)
 
-    def test_build_symbol_table(self):
+    def test_symbol_table_extracts_classes_methods_and_nested_functions(self):
+        """Symbol table generator records scope hierarchy for classes, methods, and nested functions."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
             code = (

@@ -9,7 +9,8 @@ from skiplist.analysis.reachability import find_dead_code
 
 
 class TestReachability(unittest.TestCase):
-    def test_legacy_sample_reachability(self):
+    def test_known_dead_functions_flagged_while_live_code_preserved(self):
+        """Reachability tracer correctly flags unreachable dead code while preserving live entry-point callers."""
         legacy_dir = Path("fixtures/legacy_sample").resolve()
         py_files = sorted(list(legacy_dir.glob("*.py")))
 
@@ -25,7 +26,7 @@ class TestReachability(unittest.TestCase):
 
         self.assertEqual(entry_points, {"app.main"})
 
-        dead_symbols = find_dead_code(graph, entry_points, symbols)
+        dead_symbols = find_dead_code(graph, entry_points, symbols, modules, legacy_dir)
         dead_names = {s.qualified_name for s in dead_symbols}
 
         expected_dead = {
@@ -40,7 +41,6 @@ class TestReachability(unittest.TestCase):
 
         self.assertEqual(dead_names, expected_dead)
 
-        # Ensure live symbols are NOT marked dead
         live_symbols = {
             "app.main",
             "orders.create_order",

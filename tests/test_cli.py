@@ -8,7 +8,8 @@ from skiplist.cli import main
 
 
 class TestCli(unittest.TestCase):
-    def test_analyze_command(self):
+    def test_cli_analyze_command_executes_end_to_end_summary(self):
+        """CLI analyze command runs full triage pipeline and prints safe-to-skip summary."""
         with tempfile.TemporaryDirectory() as tmpdir:
             sample_file = Path(tmpdir) / "sample.py"
             sample_file.write_text(

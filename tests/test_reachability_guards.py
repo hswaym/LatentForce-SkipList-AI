@@ -9,7 +9,8 @@ from skiplist.analysis.reachability import find_dead_code
 
 
 class TestReachabilityGuards(unittest.TestCase):
-    def test_unittest_testcase_and_pytest_fixture_guards(self):
+    def test_dunders_all_exports_and_test_methods_never_flagged_dead(self):
+        """Class dunder methods, module __all__ exports, and unittest/pytest discovery methods are never flagged as dead."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
             f = tmppath / "test_service.py"
@@ -37,12 +38,10 @@ class TestReachabilityGuards(unittest.TestCase):
             dead_symbols = find_dead_code(graph, entry_points, symbols, modules, tmppath)
             dead_names = {s.qualified_name for s in dead_symbols}
 
-            # test_run, setUp, and db_conn must NOT be flagged dead!
             self.assertNotIn("test_service.db_conn", dead_names)
             self.assertNotIn("test_service.TestService.setUp", dead_names)
             self.assertNotIn("test_service.TestService.test_run", dead_names)
 
-            # genuine_dead_func MUST be flagged dead
             self.assertIn("test_service.genuine_dead_func", dead_names)
 
 

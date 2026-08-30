@@ -5,7 +5,8 @@ from skiplist.report.html_writer import write_html
 
 
 class TestHtmlWriter(unittest.TestCase):
-    def test_write_html_report(self):
+    def test_html_report_rendered_self_contained_and_offline_safe(self):
+        """HTML report generator renders self-contained dashboard with zero external CDN dependencies."""
         report_data = {
             "meta": {
                 "repo_path": "/path/to/myrepo",
@@ -49,7 +50,6 @@ class TestHtmlWriter(unittest.TestCase):
             self.assertTrue(out_file.exists())
             html_content = out_file.read_text(encoding="utf-8")
 
-            # Check self-contained requirements
             self.assertIn("15.0% safe to skip or consolidate", html_content)
             self.assertIn("myrepo", html_content)
             self.assertNotIn("http://", html_content)

@@ -9,8 +9,8 @@ from skiplist.analysis.reachability import find_dead_code
 
 
 class TestTestHelperReachability(unittest.TestCase):
-    def test_helper_called_from_test_method_is_reachable(self):
-        """A helper function called only from inside a test_* method should NOT appear in dead-code findings."""
+    def test_helper_called_from_test_method_resolves_reachable(self):
+        """A helper function called only from inside a test method resolves as reachable and is excluded from findings."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
             f = tmppath / "test_example.py"
@@ -33,11 +33,9 @@ class TestTestHelperReachability(unittest.TestCase):
             dead_symbols = find_dead_code(graph, entry_points, symbols, modules, tmppath)
             dead_names = {s.qualified_name for s in dead_symbols}
 
-            # test_case_one and test_helper_util MUST NOT appear in dead_names!
             self.assertNotIn("test_example.test_case_one", dead_names)
             self.assertNotIn("test_example.test_helper_util", dead_names)
 
-            # genuine_dead_function MUST appear in dead_names
             self.assertIn("test_example.genuine_dead_function", dead_names)
 
 

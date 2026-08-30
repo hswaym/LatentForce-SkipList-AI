@@ -6,7 +6,8 @@ from skiplist.analysis.callgraph import build_call_graph, build_graph_export
 
 
 class TestGraphExport(unittest.TestCase):
-    def test_graph_export_fixture(self):
+    def test_call_graph_serialized_with_node_and_edge_metadata(self):
+        """Call graph serialization outputs node status attributes and caller-callee edges in findings.json."""
         legacy_dir = Path("fixtures/legacy_sample").resolve()
         py_files = sorted(list(legacy_dir.glob("*.py")))
 

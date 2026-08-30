@@ -25,5 +25,6 @@ skiplist = "skiplist.cli:main"
 where = ["."]
 
 [tool.pytest.ini_options]
+addopts = "-v"
 testpaths = ["tests"]
 norecursedirs = ["fixtures", ".*", "build", "dist"]
