@@ -30,7 +30,7 @@ err_console = Console(stderr=True)
 
 
 def print_banner():
-    console.print(f"[bold indigo]SkipList[/bold indigo] [dim]v{VERSION}[/dim] — [italic]{TAGLINE}[/italic]\n")
+    console.print(f"[bold indigo]SkipList[/bold indigo] [dim]v{VERSION}[/dim] - [italic]{TAGLINE}[/italic]\n")
 
 
 def analyze_command(args: argparse.Namespace) -> None:
@@ -212,9 +212,9 @@ def analyze_command(args: argparse.Namespace) -> None:
         out_html_path = args.out
     elif args.format == "both":
         out_html_path = args.out if args.out.endswith(".html") else "report.html"
-        out_json_path = "findings.json" if args.out == "report.html" else (args.out.rsplit(".", 1)[0] + ".json")
+        json_out = "findings.json" if args.out == "report.html" else (args.out.rsplit(".", 1)[0] + ".json")
         write_html(report_dict, out_html_path)
-        write_json(report, out_json_path)
+        write_json(report, json_out)
 
     elapsed_time = round(time.time() - start_time, 2)
 
@@ -310,7 +310,7 @@ def deadcode_command(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="skiplist",
-        description=f"SkipList v{VERSION} — {TAGLINE}",
+        description=f"SkipList v{VERSION} - {TAGLINE}",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--version", action="version", version=f"skiplist v{VERSION}")
