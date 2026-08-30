@@ -1,3 +1,13 @@
+```text
+ ____    _      _           _       _         _   
+/ ___|  | | __ (_)  _ __   | |     (_)  ___  | |_ 
+\___ \  | |/ / | | | '_ \  | |     | | / __| | __|
+ ___) | |   <  | | | |_) | | |___  | | \__ \ | |_ 
+|____/  |_|\_\ |_| | .__/  |_____| |_| |___/  \__|
+                   |_|                            
+SkipList v0.1.0 — Know what to skip before you migrate.
+```
+
 # SkipList (LatentForce-SkipList-AI)
 
 > **Pre-Migration Code-Triage Engine:** Finds dead code and structural duplicates across legacy Python codebases so migration teams scope real work first.
