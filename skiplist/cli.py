@@ -1,8 +1,15 @@
 import argparse
 import ast
+import sys
+import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
 from skiplist.analysis.discovery import find_python_files
 from skiplist.analysis.parsing import parse_file
 from skiplist.analysis.symbols import build_symbol_table
@@ -15,10 +22,36 @@ from skiplist.models import Report, Meta, Summary, Finding, Evidence
 from skiplist.report.json_writer import write_json
 from skiplist.report.html_writer import write_html
 
+VERSION = "0.1.0"
+TAGLINE = "Know what to skip before you migrate."
+
+console = Console()
+err_console = Console(stderr=True)
+
+
+def print_banner():
+    console.print(f"[bold indigo]SkipList[/bold indigo] [dim]v{VERSION}[/dim] — [italic]{TAGLINE}[/italic]\n")
+
 
 def analyze_command(args: argparse.Namespace) -> None:
     """Execute the full analysis pipeline and emit report."""
+    start_time = time.time()
     repo_root = Path(args.path).resolve()
+
+    if not repo_root.exists():
+        err_console.print(f"[bold red]Error:[/bold red] Target path '[bold]{args.path}[/bold]' does not exist.")
+        err_console.print("[dim]Actionable suggestion: Verify the directory path and try again.[/dim]")
+        sys.exit(1)
+
+    if not repo_root.is_dir():
+        err_console.print(f"[bold red]Error:[/bold red] Target path '[bold]{args.path}[/bold]' is a file, not a directory.")
+        err_console.print("[dim]Actionable suggestion: Provide a project directory path to analyze.[/dim]")
+        sys.exit(1)
+
+    print_banner()
+
+    # Stage 1: File Discovery
+    console.print("[cyan][1/5][/cyan] Discovering Python source files...")
     files = find_python_files(repo_root, exclude=args.exclude)
 
     modules = {}
@@ -33,7 +66,12 @@ def analyze_command(args: argparse.Namespace) -> None:
             except Exception:
                 pass
 
+    # Stage 2: Symbol Extraction
+    console.print("[cyan][2/5][/cyan] Extracting symbol table...")
     symbol_table = build_symbol_table(modules, repo_root)
+
+    # Stage 3: Call Graph & Reachability
+    console.print("[cyan][3/5][/cyan] Building call graph & tracing reachability...")
     call_graph = build_call_graph(modules, symbol_table, repo_root)
     entry_points = detect_entry_points(
         modules,
@@ -47,15 +85,19 @@ def analyze_command(args: argparse.Namespace) -> None:
     dead_symbol_names = {s.qualified_name for s in dead_symbols}
     reachable_symbols = {s.qualified_name for s in symbol_table if s.qualified_name not in dead_symbol_names}
 
+    # Stage 4: Duplicate Clustering
+    console.print("[cyan][4/5][/cyan] Clustering structural duplicate functions...")
     dup_clusters = cluster_duplicates(modules, symbol_table, reachable_symbols, repo_root)
     dynamic_modules = detect_dynamic_modules(modules, repo_root)
+
+    # Stage 5: Findings & Reports
+    console.print("[cyan][5/5][/cyan] Scoring findings & generating reports...")
 
     findings: list[Finding] = []
     non_keeper_names = set()
     duplicate_findings_count = 0
     duplicate_lines_sum = 0
 
-    # Build duplicate findings
     for cluster in dup_clusters:
         keeper_name = cluster.keeper.qualified_name if cluster.keeper else "unknown"
         for non_keeper in cluster.non_keepers:
@@ -80,7 +122,6 @@ def analyze_command(args: argparse.Namespace) -> None:
                 )
             )
 
-    # Build dead code findings (excluding non-keeper duplicates)
     filtered_dead = [s for s in dead_symbols if s.qualified_name not in non_keeper_names]
 
     for sym in filtered_dead:
@@ -111,10 +152,8 @@ def analyze_command(args: argparse.Namespace) -> None:
             )
         )
 
-    # Sort findings by priority_score DESC, then symbol ASC
     sorted_findings = sorted(findings, key=lambda f: (-f.priority_score, f.symbol))
 
-    # Assign IDs F001, F002...
     for idx, f in enumerate(sorted_findings, start=1):
         f.id = f"F{idx:03d}"
 
@@ -133,7 +172,7 @@ def analyze_command(args: argparse.Namespace) -> None:
     meta = Meta(
         repo_path=str(repo_root),
         analyzed_at=datetime.now(timezone.utc).isoformat(),
-        tool_version="0.1.0",
+        tool_version=VERSION,
         files_analyzed=len(files),
         total_functions=len([s for s in symbol_table if s.kind in ("function", "method")]),
         total_lines=total_lines,
@@ -162,27 +201,60 @@ def analyze_command(args: argparse.Namespace) -> None:
 
     report_dict = asdict(report)
 
+    out_html_path = None
+    out_json_path = None
+
     if args.format == "json":
         write_json(report, args.out)
+        out_json_path = args.out
     elif args.format == "html":
         write_html(report_dict, args.out)
+        out_html_path = args.out
     elif args.format == "both":
-        html_out = args.out if args.out.endswith(".html") else "report.html"
-        json_out = "findings.json" if args.out == "report.html" else (args.out.rsplit(".", 1)[0] + ".json")
-        write_html(report_dict, html_out)
-        write_json(report, json_out)
+        out_html_path = args.out if args.out.endswith(".html") else "report.html"
+        out_json_path = "findings.json" if args.out == "report.html" else (args.out.rsplit(".", 1)[0] + ".json")
+        write_html(report_dict, out_html_path)
+        write_json(report, out_json_path)
 
+    elapsed_time = round(time.time() - start_time, 2)
+
+    # Standard output line for test suite compatibility
     print(
         f"Safe to skip: {safe_to_skip_lines} lines across {len(sorted_findings)} findings "
         f"({dead_functions_count} dead, {duplicate_findings_count} duplicate, {needs_review_count} needs review)"
     )
 
+    # Rich Summary Table
+    table = Table(title="[bold green]Triage Summary[/bold green]", show_header=True, header_style="bold magenta", border_style="dim")
+    table.add_column("Metric", style="bold")
+    table.add_column("Value", justify="right")
+
+    table.add_row("Scanned Directory", f"{repo_root.name}")
+    table.add_row("Files / Functions / LOC", f"{len(files)} files / {meta.total_functions} functions / {total_lines:,} LOC")
+    table.add_row("Safe to Skip Lines", f"[bold green]{safe_to_skip_lines:,} lines ({safe_to_skip_pct}%)[/bold green]")
+    table.add_row("Dead Functions", f"{dead_functions_count} ({dead_lines_sum:,} lines)")
+    table.add_row("Duplicate Clusters", f"{len(dup_clusters)} ({duplicate_lines_sum:,} lines)")
+    table.add_row("Needs Review (Dynamic)", f"[bold yellow]{needs_review_count}[/bold yellow] ({needs_review_lines_sum:,} lines)")
+    table.add_row("Execution Time", f"{elapsed_time}s")
+
+    console.print("\n", table)
+
+    if out_html_path:
+        console.print(f"[bold green]+[/bold green] HTML report generated: [underline]{out_html_path}[/underline]")
+    if out_json_path:
+        console.print(f"[bold green]+[/bold green] JSON findings exported: [underline]{out_json_path}[/underline]")
+
 
 def symbols_command(args: argparse.Namespace) -> None:
     """Execute the symbols command to list all defined symbols in the codebase."""
     repo_root = Path(args.path).resolve()
-    files = find_python_files(repo_root, exclude=args.exclude)
+    if not repo_root.exists() or not repo_root.is_dir():
+        err_console.print(f"[bold red]Error:[/bold red] Target path '[bold]{args.path}[/bold]' is invalid.")
+        sys.exit(1)
 
+    print_banner()
+
+    files = find_python_files(repo_root, exclude=args.exclude)
     modules = {}
     for file_path in files:
         tree = parse_file(file_path)
@@ -190,7 +262,6 @@ def symbols_command(args: argparse.Namespace) -> None:
             modules[file_path] = tree
 
     symbols = build_symbol_table(modules, repo_root)
-
     sorted_symbols = sorted(symbols, key=lambda s: (s.file, s.line_start))
 
     for sym in sorted_symbols:
@@ -201,8 +272,13 @@ def symbols_command(args: argparse.Namespace) -> None:
 def deadcode_command(args: argparse.Namespace) -> None:
     """Execute the deadcode command to find and print unreachable symbols."""
     repo_root = Path(args.path).resolve()
-    files = find_python_files(repo_root, exclude=args.exclude)
+    if not repo_root.exists() or not repo_root.is_dir():
+        err_console.print(f"[bold red]Error:[/bold red] Target path '[bold]{args.path}[/bold]' is invalid.")
+        sys.exit(1)
 
+    print_banner()
+
+    files = find_python_files(repo_root, exclude=args.exclude)
     modules = {}
     for file_path in files:
         tree = parse_file(file_path)
@@ -232,38 +308,61 @@ def deadcode_command(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="skiplist", description="SkipList: Pre-migration code-triage tool.")
+    parser = argparse.ArgumentParser(
+        prog="skiplist",
+        description=f"SkipList v{VERSION} — {TAGLINE}",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("--version", action="version", version=f"skiplist v{VERSION}")
+
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Analyze command
-    analyze_parser = subparsers.add_parser("analyze", help="Analyze a Python codebase for dead and duplicate code.")
+    analyze_parser = subparsers.add_parser(
+        "analyze",
+        help="Analyze a Python codebase for dead and duplicate code.",
+        description="Run a full triage analysis on a Python codebase and generate HTML/JSON reports."
+    )
     analyze_parser.add_argument("path", help="Path to Python codebase root directory")
-    analyze_parser.add_argument("--entry", action="append", default=[], help="Specify entry point file/module (repeatable)")
+    analyze_parser.add_argument("--entry", action="append", default=[], help="Specify custom entry point file/module (repeatable)")
     analyze_parser.add_argument("--exclude", action="append", default=[], help="Exclude file/directory path pattern (repeatable)")
     analyze_parser.add_argument("--out", default="report.html", help="Output file path (default: report.html)")
     analyze_parser.add_argument("--format", choices=["html", "json", "both"], default="html", help="Report format (default: html)")
     analyze_parser.add_argument("--frameworks", action="store_true", help="Enable framework-aware entry point detection (Flask/FastAPI/Click/Celery)")
 
     # Symbols command
-    symbols_parser = subparsers.add_parser("symbols", help="Build and print symbol table for a Python codebase.")
+    symbols_parser = subparsers.add_parser(
+        "symbols",
+        help="Build and print symbol table for a Python codebase.",
+        description="List all defined functions, classes, and methods with line ranges and LOC."
+    )
     symbols_parser.add_argument("path", help="Path to Python codebase root directory")
     symbols_parser.add_argument("--exclude", action="append", default=[], help="Exclude file/directory path pattern (repeatable)")
 
     # Deadcode command
-    deadcode_parser = subparsers.add_parser("deadcode", help="Find dead code symbols using call graph reachability.")
+    deadcode_parser = subparsers.add_parser(
+        "deadcode",
+        help="Find dead code symbols using call graph reachability.",
+        description="Inspect entry points and unreachable candidate symbols."
+    )
     deadcode_parser.add_argument("path", help="Path to Python codebase root directory")
-    deadcode_parser.add_argument("--entry", action="append", default=[], help="Specify entry point file/module (repeatable)")
+    deadcode_parser.add_argument("--entry", action="append", default=[], help="Specify custom entry point file/module (repeatable)")
     deadcode_parser.add_argument("--exclude", action="append", default=[], help="Exclude file/directory path pattern (repeatable)")
     deadcode_parser.add_argument("--frameworks", action="store_true", help="Enable framework-aware entry point detection")
 
-    args = parser.parse_args()
-
-    if args.command == "analyze":
-        analyze_command(args)
-    elif args.command == "symbols":
-        symbols_command(args)
-    elif args.command == "deadcode":
-        deadcode_command(args)
+    try:
+        args = parser.parse_args()
+        if args.command == "analyze":
+            analyze_command(args)
+        elif args.command == "symbols":
+            symbols_command(args)
+        elif args.command == "deadcode":
+            deadcode_command(args)
+    except Exception as exc:
+        if "--debug" in sys.argv:
+            raise exc
+        err_console.print(f"[bold red]Error:[/bold red] {exc}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
