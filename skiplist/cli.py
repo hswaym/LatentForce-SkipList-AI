@@ -30,7 +30,7 @@ err_console = Console(stderr=True)
 
 
 def print_banner():
-    console.print(f"[bold indigo]SkipList[/bold indigo] [dim]v{VERSION}[/dim] - [italic]{TAGLINE}[/italic]\n")
+    console.print(f"[bold indigo]>> SkipList[/bold indigo] [dim]v{VERSION}[/dim] - [italic]{TAGLINE}[/italic]\n")
 
 
 def analyze_command(args: argparse.Namespace) -> None:
