@@ -25,22 +25,20 @@ from skiplist.report.html_writer import write_html
 VERSION = "0.1.0"
 TAGLINE = "Know what to skip before you migrate."
 
-ASCII_LOGO = r"""
-  ____  _    _       _     _st
- / ___|| | _(_)_ __ | |   (_)___| |_ 
- \___ \| |/ / | '_ \| |   | / __| __|
-  ___) |   <| | |_) | |___| \__ \ |_ 
- |____/|_|\_\_| .__/|_____|_|___/\__|
-              |_|                    
-"""
+ASCII_BANNER = r""" ____    _      _           _       _         _   
+/ ___|  | | __ (_)  _ __   | |     (_)  ___  | |_ 
+\___ \  | |/ / | | | '_ \  | |     | | / __| | __|
+ ___) | |   <  | | | |_) | | |___  | | \__ \ | |_ 
+|____/  |_|\_\ |_| | .__/  |_____| |_| |___/  \__|
+                   |_|                            
+SkipList v0.1.0 — Know what to skip before you migrate."""
 
 console = Console()
 err_console = Console(stderr=True)
 
 
 def print_banner():
-    console.print(f"[bold cyan]{ASCII_LOGO}[/bold cyan]")
-    console.print(f"[bold indigo]SkipList[/bold indigo] [dim]v{VERSION}[/dim] - [italic]{TAGLINE}[/italic]\n")
+    console.print(f"[bold cyan]{ASCII_BANNER}[/bold cyan]\n")
 
 
 def analyze_command(args: argparse.Namespace) -> None:
@@ -320,7 +318,7 @@ def deadcode_command(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="skiplist",
-        description=f"SkipList v{VERSION} - {TAGLINE}",
+        description=f"SkipList v{VERSION} — {TAGLINE}",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--version", action="version", version=f"skiplist v{VERSION}")
