@@ -25,12 +25,24 @@ from skiplist.report.html_writer import write_html
 VERSION = "0.1.0"
 TAGLINE = "Know what to skip before you migrate."
 
+ASCII_LOGO = r"""
+   _____ k  _         _       _   
+  / ____| |(_)       | |     | |  
+ | (___ | | _ _ __   | |     | |  
+  \___ \| || | '_ \  | |     | |  
+  ____) | || | |_) | | |____ |_|  
+ |_____/|_||_| .__/  |______|(_)  
+             | |                  
+             |_|                  
+"""
+
 console = Console()
 err_console = Console(stderr=True)
 
 
 def print_banner():
-    console.print(f"[bold indigo]>> SkipList[/bold indigo] [dim]v{VERSION}[/dim] - [italic]{TAGLINE}[/italic]\n")
+    console.print(f"[bold cyan]{ASCII_LOGO}[/bold cyan]")
+    console.print(f"[bold indigo]SkipList[/bold indigo] [dim]v{VERSION}[/dim] - [italic]{TAGLINE}[/italic]\n")
 
 
 def analyze_command(args: argparse.Namespace) -> None:
