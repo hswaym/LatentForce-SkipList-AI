@@ -18,6 +18,8 @@ secrets.json
 # Session logs and transcripts
 session-*.md
 LatentSkipList.md
+Skiplist-AI-Latent.md
+
 
 
 
